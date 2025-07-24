@@ -10,11 +10,13 @@ import 'order_details_modal.dart';
 class OrderCard extends StatelessWidget {
   final Order order;
   final String orderType;
+  final int? deliveryNumber; // Add this new parameter
 
   const OrderCard({
     Key? key,
     required this.order,
     required this.orderType,
+    this.deliveryNumber, // Add this optional parameter
   }) : super(key: key);
 
   @override
@@ -51,6 +53,41 @@ class OrderCard extends StatelessWidget {
                 // Header Row
                 Row(
                   children: [
+                    if (orderType == 'completed' && deliveryNumber != null)
+                      Container(
+                        width: 36,
+                        height: 36,
+                        margin: const EdgeInsets.only(right: 12),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFFAF97CD),
+                              Color(0xFFC2A0DA),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.surgeColor.withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            '$deliveryNumber',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+
                     // Order ID and Status
                     Expanded(
                       child: Row(
@@ -79,7 +116,7 @@ class OrderCard extends StatelessWidget {
                       ),
                     ),
 
-                    // Action Button
+                    // Action Button (only for non-completed orders)
                     if (orderType != 'completed')
                       Container(
                         width: 36,
@@ -109,6 +146,110 @@ class OrderCard extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 16),
+
+                // PROMINENT TOTAL AMOUNT AND PAYMENT TYPE SECTION
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppTheme.surgeColor.withOpacity(0.08),
+                        AppTheme.surgeColor.withOpacity(0.03),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppTheme.surgeColor.withOpacity(0.15),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Total Amount - Moderately Large and Bold
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Total Amount',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.surgeColor,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '£${order.orderTotalPrice.toStringAsFixed(2)}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.surgeColor,
+                              height: 1.1,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // Payment Type - Moderate Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: (order.paymentType.toLowerCase() == 'cash' ||
+                              order.paymentType.toLowerCase() == 'cod')
+                              ? Colors.red.shade50
+                              : Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: (order.paymentType.toLowerCase() == 'cash' ||
+                                order.paymentType.toLowerCase() == 'cod')
+                                ? Colors.red.shade200
+                                : Colors.green.shade200,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              (order.paymentType.toLowerCase() == 'cash' ||
+                                  order.paymentType.toLowerCase() == 'cod')
+                                  ? Icons.money_rounded
+                                  : Icons.credit_card_rounded,
+                              size: 18,
+                              color: (order.paymentType.toLowerCase() == 'cash' ||
+                                  order.paymentType.toLowerCase() == 'cod')
+                                  ? Colors.red.shade600
+                                  : Colors.green.shade600,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              order.paymentType.toUpperCase(),
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: (order.paymentType.toLowerCase() == 'cash' ||
+                                    order.paymentType.toLowerCase() == 'cod')
+                                    ? Colors.red.shade600
+                                    : Colors.green.shade600,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
 
                 // Customer Info
                 Row(
@@ -198,67 +339,26 @@ class OrderCard extends StatelessWidget {
 
                 const SizedBox(height: 16),
 
-                // Bottom Row - Price and Items
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Price
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Total Amount',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: AppTheme.subtitleColor,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '£${order.orderTotalPrice.toStringAsFixed(2)}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.surgeColor,
-                          ),
-                        ),
-                      ],
+                // Bottom Row - Items Count (centered)
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
                     ),
-
-                    // Items Count and Payment
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.lightGrayColor,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '${order.items.length} items',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.textColor,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          order.paymentType.toUpperCase(),
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.subtitleColor,
-                          ),
-                        ),
-                      ],
+                    decoration: BoxDecoration(
+                      color: AppTheme.lightGrayColor,
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  ],
+                    child: Text(
+                      '${order.items.length} items',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textColor,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -267,6 +367,7 @@ class OrderCard extends StatelessWidget {
       ),
     );
   }
+
 
   Widget _buildStatusBadge(String status) {
     Color color;
@@ -375,26 +476,179 @@ class OrderCard extends StatelessWidget {
           ),
         );
       } else if (orderType == 'my') {
-        // Mark as delivered and move to completed
-        ordersProvider.completeOrder(order.orderId, authProvider.driver!.id);
-
-        // Show success snackbar
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Order #${order.orderId} marked as delivered!',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            backgroundColor: AppTheme.blueColor,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
+        // Show dialog to choose between Mark as Delivered or Remove Order
+        _showMyOrderActionsDialog(context, authProvider, ordersProvider);
       }
     }
+  }
+  void _showMyOrderActionsDialog(BuildContext context, AuthProvider authProvider, OrdersProvider ordersProvider) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.surgeColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.local_shipping_outlined,
+                  color: AppTheme.surgeColor,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Order Actions',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textColor,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'What would you like to do with order #${order.orderId}?',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: AppTheme.subtitleColor,
+            ),
+          ),
+          actions: [
+            // Remove Order Button
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFFEF4444),
+                    Color(0xFFDC2626),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  ordersProvider.removeOrder(order.orderId);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Order #${order.orderId} removed and returned to available orders!',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      backgroundColor: Colors.orange,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.remove_circle_outline,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Remove Order',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Mark as Delivered Button
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF10B981),
+                    Color(0xFF059669),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  ordersProvider.completeOrder(order.orderId, authProvider.driver!.id);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Order #${order.orderId} marked as delivered!',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      backgroundColor: AppTheme.blueColor,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.check_circle_outline,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Mark as Delivered',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import '../models/order.dart';
 import '../services/api_service.dart';
@@ -14,128 +16,505 @@ class OrdersProvider extends ChangeNotifier {
   List<Order> get completedOrders => _completedOrders;
   bool get isLoading => _isLoading;
   String? get error => _error;
+// Add these properties to OrdersProvider class
+  Timer? _pollingTimer;
+  bool _isPollingEnabled = false;
 
-  Future<void> loadOrders() async {
-    print('🔄 OrdersProvider: Starting to load orders...');
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+// Add this method to start smart polling
+  void startSmartPolling() {
+    if (_isPollingEnabled) {
+      print('🔄 OrdersProvider: Polling already enabled');
+      return;
+    }
 
-    try {
-      print('📡 OrdersProvider: Calling API to fetch orders...');
-      final orders = await ApiService.getTodayOrders();
+    print('🔄 OrdersProvider: Starting smart polling for live updates');
+    _isPollingEnabled = true;
 
-      print('✅ OrdersProvider: API call successful');
-      print('📊 OrdersProvider: Total orders received: ${orders.length}');
-
-      // Log all orders for debugging
-      for (int i = 0; i < orders.length; i++) {
-        final order = orders[i];
-        print('📋 Order ${i + 1}:');
-        print('   - ID: ${order.orderId}');
-        print('   - Driver ID: ${order.driverId}');
-        print('   - Status: ${order.status}');
-        print('   - Order Type: ${order.orderType}');
-        print('   - Customer: ${order.customerName}');
-        print('   - Total Price: ${order.orderTotalPrice}');
-        print('   - Created At: ${order.createdAt}');
-        print('   ---');
+    // Poll every 10 seconds for live updates
+    _pollingTimer = Timer.periodic(Duration(seconds: 10), (timer) async {
+      if (!_isPollingEnabled) {
+        timer.cancel();
+        return;
       }
 
-      // Filter for All Orders (driver_id == null, status == 'green', order_type == 'delivery')
-      print('🔍 OrdersProvider: Filtering for All Orders...');
-      print('   Filter criteria: driver_id == null AND status == "green" AND order_type == "delivery"');
+      try {
+        await _performSmartUpdate();
+      } catch (e) {
+        print('❌ OrdersProvider: Smart polling error: $e');
+      }
+    });
+  }
 
-      _allOrders = orders.where((order) {
-        bool matchesDriverId = order.driverId == null;
-        bool matchesStatus = order.status == 'green';
-        bool matchesOrderType = order.orderType == 'delivery';
+// Smart update that only updates if there are actual changes
+  Future<void> _performSmartUpdate() async {
+    print('🔍 OrdersProvider: Performing smart update check...');
 
-        print('   Order ${order.orderId}: driverId=${order.driverId} (${matchesDriverId ? '✅' : '❌'}), status=${order.status} (${matchesStatus ? '✅' : '❌'}), orderType=${order.orderType} (${matchesOrderType ? '✅' : '❌'})');
+    try {
+      final orders = await ApiService.getTodayOrders();
 
-        return matchesDriverId && matchesStatus && matchesOrderType;
-      }).toList();
+      // Sort orders by creation time (newest first)
+      orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-      print('📈 OrdersProvider: All Orders after filtering: ${_allOrders.length}');
+      // Check if there are any new orders since last update
+      bool hasChanges = _detectChanges(orders);
 
-      // Filter for My Orders (driver_id != null, status == 'green', order_type == 'delivery')
-      print('🔍 OrdersProvider: Filtering for My Orders...');
-      print('   Filter criteria: driver_id != null AND status == "green" AND order_type == "delivery"');
+      if (hasChanges) {
+        print('🆕 OrdersProvider: Changes detected, updating UI');
+        _updateOrderLists(orders);
+        notifyListeners();
+      } else {
+        print('✅ OrdersProvider: No changes detected, UI update skipped');
+      }
 
-      _myOrders = orders.where((order) {
-        bool matchesDriverId = order.driverId != null;
-        bool matchesStatus = order.status == 'green';
-        bool matchesOrderType = order.orderType == 'delivery';
+    } catch (e) {
+      print('❌ OrdersProvider: Smart update failed: $e');
+    }
+  }
 
-        print('   Order ${order.orderId}: driverId=${order.driverId} (${matchesDriverId ? '✅' : '❌'}), status=${order.status} (${matchesStatus ? '✅' : '❌'}), orderType=${order.orderType} (${matchesOrderType ? '✅' : '❌'})');
+// Detect changes in order lists
+  bool _detectChanges(List<Order> newOrders) {
+    // Filter new orders for comparison
+    final newAllOrders = newOrders.where((order) {
+      return order.driverId == null &&
+          order.status == 'green' &&
+          order.orderType == 'delivery';
+    }).toList();
 
-        return matchesDriverId && matchesStatus && matchesOrderType;
-      }).toList();
+    final newMyOrders = newOrders.where((order) {
+      return order.driverId != null &&
+          order.status == 'green' &&
+          order.orderType == 'delivery';
+    }).toList();
 
-      print('📈 OrdersProvider: My Orders after filtering: ${_myOrders.length}');
+    final newCompletedOrders = newOrders.where((order) {
+      return order.status == 'blue' &&
+          order.orderType == 'delivery';
+    }).toList();
 
-      // Filter for Completed Orders (status == 'blue', order_type == 'delivery')
-      print('🔍 OrdersProvider: Filtering for Completed Orders...');
-      print('   Filter criteria: status == "blue" AND order_type == "delivery"');
+    // Check if counts changed
+    if (newAllOrders.length != _allOrders.length ||
+        newMyOrders.length != _myOrders.length ||
+        newCompletedOrders.length != _completedOrders.length) {
+      print('📊 OrdersProvider: Order count changes detected');
+      return true;
+    }
 
-      _completedOrders = orders.where((order) {
-        bool matchesStatus = order.status == 'blue';
-        bool matchesOrderType = order.orderType == 'delivery';
+    // Check if any order IDs are different
+    final currentAllOrderIds = _allOrders.map((o) => o.orderId).toSet();
+    final newAllOrderIds = newAllOrders.map((o) => o.orderId).toSet();
 
-        print('   Order ${order.orderId}: status=${order.status} (${matchesStatus ? '✅' : '❌'}), orderType=${order.orderType} (${matchesOrderType ? '✅' : '❌'})');
+    if (!currentAllOrderIds.containsAll(newAllOrderIds) ||
+        !newAllOrderIds.containsAll(currentAllOrderIds)) {
+      print('📊 OrdersProvider: Order ID changes detected in All Orders');
+      return true;
+    }
 
-        return matchesStatus && matchesOrderType;
-      }).toList();
+    return false;
+  }
 
-      print('📈 OrdersProvider: Completed Orders after filtering: ${_completedOrders.length}');
+// Stop polling when not needed
+  void stopSmartPolling() {
+    print('⏹️ OrdersProvider: Stopping smart polling');
+    _isPollingEnabled = false;
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+  }
+
+// Override dispose to clean up
+  @override
+  void dispose() {
+    stopSmartPolling();
+    super.dispose();
+  }
+
+// Update loadOrders method to work with polling
+  Future<void> loadOrders({bool showLoading = true}) async {
+    if (showLoading) {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+    }
+
+    try {
+      final orders = await ApiService.getTodayOrders();
+
+      // Sort orders by creation time (newest first) for better UX
+      orders.sort((a, b) {
+        return b.createdAt.compareTo(a.createdAt); // Newest first
+      });
+
+      // Filter and update all order lists
+      _updateOrderLists(orders);
 
       _isLoading = false;
-      print('✅ OrdersProvider: Loading completed successfully');
       notifyListeners();
+
+      // Start smart polling after successful load
+      if (!_isPollingEnabled) {
+        startSmartPolling();
+      }
+
     } catch (e) {
-      print('❌ OrdersProvider: Error loading orders: $e');
       _error = e.toString();
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> acceptOrder(int orderId, int driverId) async {
-    print('🎯 OrdersProvider: Accepting order $orderId for driver $driverId');
-    try {
-      await ApiService.updateOrderStatus(orderId, 'green', driverId);
-      print('✅ OrdersProvider: Order status updated successfully');
+  void _updateOrderLists(List<Order> orders) {
+    // Filter for All Orders (driver_id == null, status == 'green', order_type == 'delivery')
+    _allOrders = orders.where((order) {
+      bool matchesDriverId = order.driverId == null;
+      bool matchesStatus = order.status == 'green';
+      bool matchesOrderType = order.orderType == 'delivery';
 
-      // Move order from all orders to my orders
-      final orderIndex = _allOrders.indexWhere(
-            (order) => order.orderId == orderId,
+      return matchesDriverId && matchesStatus && matchesOrderType;
+    }).toList();
+
+    // Filter for My Orders (driver_id != null, status == 'green', order_type == 'delivery')
+    _myOrders = orders.where((order) {
+      bool matchesDriverId = order.driverId != null;
+      bool matchesStatus = order.status == 'green';
+      bool matchesOrderType = order.orderType == 'delivery';
+
+      return matchesDriverId && matchesStatus && matchesOrderType;
+    }).toList();
+
+    // Filter for Completed Orders (status == 'blue', order_type == 'delivery')
+    _completedOrders = orders.where((order) {
+      bool matchesStatus = order.status == 'blue';
+      bool matchesOrderType = order.orderType == 'delivery';
+
+      return matchesStatus && matchesOrderType;
+    }).toList();
+  }
+
+  void handleSocketUpdate(Map<String, dynamic> data) {
+    print('🔄 OrdersProvider: Handling socket update: $data');
+
+    try {
+      // IGNORE TEST DATA to prevent unnecessary processing
+      if (data['test'] == true || data['heartbeat'] == true) {
+        print('🧪 OrdersProvider: Ignoring test/heartbeat socket data');
+        return;
+      }
+
+      final orderId = data['order_id'];
+      final newStatus = data['new_status'] ?? data['status'];
+      final newDriverId = data['new_driver_id'] ?? data['driver_id'];
+      final isNewOrderEvent = data['_is_new_order_event'] == true;
+      final shouldFetchDetails = data['_fetch_order_details'] == true;
+
+      print('📦 OrdersProvider: Socket update details:');
+      print('   - Order ID: $orderId');
+      print('   - New Status: $newStatus');
+      print('   - New Driver ID: $newDriverId');
+      print('   - Is New Order Event: $isNewOrderEvent');
+      print('   - Should Fetch Details: $shouldFetchDetails');
+
+      // PRIORITY: Handle potential new order (status=green, driver_id=null)
+      if (newStatus == 'green' && newDriverId == null && orderId != null) {
+        print('🆕 OrdersProvider: Processing potential new order: $orderId');
+        _handlePotentialNewOrder(orderId);
+        return;
+      }
+
+      // Handle order accepted by another driver
+      if (newStatus == 'green' && newDriverId != null) {
+        print('👤 OrdersProvider: Order accepted by driver $newDriverId');
+        _handleOrderAcceptedByOther(orderId);
+        return;
+      }
+
+      // Handle order completion
+      if (newStatus == 'blue') {
+        print('🏁 OrdersProvider: Order completed');
+        _handleOrderCompleted(orderId, newDriverId);
+        return;
+      }
+
+      // Handle other status changes with minimal reload
+      print('🔄 OrdersProvider: Other status change, doing silent refresh...');
+      _performSilentRefresh();
+
+    } catch (e) {
+      print('❌ OrdersProvider: Error handling socket update: $e');
+      print('❌ Stack trace: ${StackTrace.current}');
+      _performSilentRefresh(); // Fallback to silent refresh
+    }
+  }
+
+// New method to handle potential new orders
+  Future<void> _handlePotentialNewOrder(int orderId) async {
+    print('🆕 OrdersProvider: Checking if order $orderId is a new delivery order');
+
+    try {
+      // Check if order already exists to avoid duplicates
+      bool orderExists = _allOrders.any((order) => order.orderId == orderId) ||
+          _myOrders.any((order) => order.orderId == orderId) ||
+          _completedOrders.any((order) => order.orderId == orderId);
+
+      if (orderExists) {
+        print('⚠️ OrdersProvider: Order $orderId already exists, skipping');
+        return;
+      }
+
+      print('🔍 OrdersProvider: Fetching order details for order $orderId');
+
+      // Fetch order details using the API
+      final order = await ApiService.getOrderDetails(orderId);
+
+      print('📦 OrdersProvider: Retrieved order details:');
+      print('   - Order ID: ${order.orderId}');
+      print('   - Order Type: ${order.orderType}');
+      print('   - Status: ${order.status}');
+      print('   - Driver ID: ${order.driverId}');
+      print('   - Customer: ${order.customerName}');
+
+      // Only add if it's a delivery order with green status and no driver
+      if (order.orderType == 'delivery' &&
+          order.status == 'green' &&
+          order.driverId == null) {
+
+        print('✅ OrdersProvider: Adding new delivery order to All Orders');
+
+        // Add to beginning of all orders (newest first)
+        _allOrders.insert(0, order);
+
+        print('📋 OrdersProvider: All Orders count: ${_allOrders.length}');
+
+        // Notify listeners for immediate UI update
+        notifyListeners();
+
+        print('🔔 OrdersProvider: New order added successfully and UI updated');
+
+      } else {
+        print('⚠️ OrdersProvider: Order does not qualify for All Orders');
+        print('   - Expected: orderType=delivery, status=green, driverId=null');
+        print('   - Actual: orderType=${order.orderType}, status=${order.status}, driverId=${order.driverId}');
+      }
+
+    } catch (e) {
+      print('❌ OrdersProvider: Error fetching new order details: $e');
+      print('❌ Performing silent refresh as fallback');
+      _performSilentRefresh();
+    }
+  }
+
+// New method for silent refresh without showing loading
+  Future<void> _performSilentRefresh() async {
+    print('🔄 OrdersProvider: Performing silent refresh...');
+
+    try {
+      final orders = await ApiService.getTodayOrders();
+
+      // Sort orders by creation time (newest first)
+      orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      // Update all order lists
+      _updateOrderLists(orders);
+
+      // Notify listeners
+      notifyListeners();
+
+      print('✅ OrdersProvider: Silent refresh completed');
+
+    } catch (e) {
+      print('❌ OrdersProvider: Silent refresh failed: $e');
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
+// Add debug method to check current state
+  void debugPrintCurrentState() {
+    print('📊 OrdersProvider: Current State Debug:');
+    print('   - All Orders: ${_allOrders.length}');
+    print('   - My Orders: ${_myOrders.length}');
+    print('   - Completed Orders: ${_completedOrders.length}');
+    print('   - Is Loading: $_isLoading');
+    print('   - Error: $_error');
+
+    if (_allOrders.isNotEmpty) {
+      print('📋 All Orders Details:');
+      for (var order in _allOrders.take(3)) { // Show first 3
+        print('   - Order ${order.orderId}: ${order.customerName} - \$${order.orderTotalPrice}');
+      }
+    }
+  }
+
+  Future<void> acceptOrder(int orderId, int driverId) async {
+    // First, optimistically update the UI immediately
+    final orderIndex = _allOrders.indexWhere(
+          (order) => order.orderId == orderId,
+    );
+
+    Order? acceptedOrder;
+
+    if (orderIndex != -1) {
+      acceptedOrder = _allOrders[orderIndex];
+
+      // Create updated order with driver assigned
+      final updatedOrder = Order(
+        orderId: acceptedOrder.orderId,
+        paymentType: acceptedOrder.paymentType,
+        transactionId: acceptedOrder.transactionId,
+        orderType: acceptedOrder.orderType,
+        driverId: driverId, // Assign driver
+        status: acceptedOrder.status,
+        createdAt: acceptedOrder.createdAt,
+        changeDue: acceptedOrder.changeDue,
+        orderSource: acceptedOrder.orderSource,
+        customerName: acceptedOrder.customerName,
+        customerEmail: acceptedOrder.customerEmail,
+        phoneNumber: acceptedOrder.phoneNumber,
+        streetAddress: acceptedOrder.streetAddress,
+        city: acceptedOrder.city,
+        county: acceptedOrder.county,
+        postalCode: acceptedOrder.postalCode,
+        orderTotalPrice: acceptedOrder.orderTotalPrice,
+        orderExtraNotes: acceptedOrder.orderExtraNotes,
+        items: acceptedOrder.items,
+        fullAddress: acceptedOrder.fullAddress,
       );
 
-      if (orderIndex != -1) {
-        final order = _allOrders[orderIndex];
-        _allOrders.removeAt(orderIndex);
-        _myOrders.add(order);
-        print('📋 OrdersProvider: Order moved from All Orders to My Orders');
-        print('   All Orders count: ${_allOrders.length}');
-        print('   My Orders count: ${_myOrders.length}');
-        notifyListeners();
-      } else {
-        print('⚠️ OrdersProvider: Order $orderId not found in All Orders');
-      }
+      // Immediately update UI
+      _allOrders.removeAt(orderIndex);
+      _myOrders.insert(0, updatedOrder); // Insert at top for newest first
+      notifyListeners();
+    }
+
+    try {
+      // Then make the API call
+      await ApiService.updateOrderStatus(orderId, 'green', driverId);
     } catch (e) {
-      print('❌ OrdersProvider: Error accepting order: $e');
+      // Rollback the optimistic update on error
+      if (acceptedOrder != null) {
+        _myOrders.removeWhere((order) => order.orderId == orderId);
+        _allOrders.add(acceptedOrder);
+        notifyListeners();
+      }
+
       _error = e.toString();
+      notifyListeners();
+      rethrow; // Re-throw to let the UI handle the error
+    }
+  }
+
+  Future<void> _handleOrderAcceptedByOther(int orderId) async {
+    print('👤 OrdersProvider: Order $orderId was accepted by another driver');
+
+    // Remove from all orders if it exists
+    final orderIndex = _allOrders.indexWhere((order) => order.orderId == orderId);
+    if (orderIndex != -1) {
+      _allOrders.removeAt(orderIndex);
+      print('📋 OrdersProvider: Order removed from All Orders');
+      print('   All Orders count: ${_allOrders.length}');
+      notifyListeners();
+    }
+  }
+
+  Future<void> _handleOrderCompleted(int orderId, int? driverId) async {
+    print('🏁 OrdersProvider: Order $orderId was completed');
+
+    // If it's in my orders, move to completed
+    final myOrderIndex = _myOrders.indexWhere((order) => order.orderId == orderId);
+    if (myOrderIndex != -1) {
+      final order = _myOrders[myOrderIndex];
+
+      // Create updated order with blue status
+      final completedOrder = Order(
+        orderId: order.orderId,
+        paymentType: order.paymentType,
+        transactionId: order.transactionId,
+        orderType: order.orderType,
+        driverId: order.driverId,
+        status: 'blue', // Update status to completed
+        createdAt: order.createdAt,
+        changeDue: order.changeDue,
+        orderSource: order.orderSource,
+        customerName: order.customerName,
+        customerEmail: order.customerEmail,
+        phoneNumber: order.phoneNumber,
+        streetAddress: order.streetAddress,
+        city: order.city,
+        county: order.county,
+        postalCode: order.postalCode,
+        orderTotalPrice: order.orderTotalPrice,
+        orderExtraNotes: order.orderExtraNotes,
+        items: order.items,
+        fullAddress: order.fullAddress,
+      );
+
+      _myOrders.removeAt(myOrderIndex);
+      _completedOrders.insert(0, completedOrder); // Insert at beginning for newest first
+      print('📋 OrdersProvider: Order moved from My Orders to Completed Orders');
+      print('   My Orders count: ${_myOrders.length}');
+      print('   Completed Orders count: ${_completedOrders.length}');
       notifyListeners();
     }
   }
 
   Future<void> completeOrder(int orderId, int driverId) async {
-    print('🏁 OrdersProvider: Completing order $orderId for driver $driverId');
-    try {
-      await ApiService.updateOrderStatus(orderId, 'blue', driverId);
-      print('✅ OrdersProvider: Order status updated to completed');
+    // First, optimistically update the UI
+    final orderIndex = _myOrders.indexWhere((order) => order.orderId == orderId);
+    Order? orderToComplete;
 
-      // Move order from my orders to completed orders
+    if (orderIndex != -1) {
+      orderToComplete = _myOrders[orderIndex];
+
+      // Create completed order with blue status
+      final completedOrder = Order(
+        orderId: orderToComplete.orderId,
+        paymentType: orderToComplete.paymentType,
+        transactionId: orderToComplete.transactionId,
+        orderType: orderToComplete.orderType,
+        driverId: orderToComplete.driverId,
+        status: 'blue', // Update status to completed
+        createdAt: orderToComplete.createdAt,
+        changeDue: orderToComplete.changeDue,
+        orderSource: orderToComplete.orderSource,
+        customerName: orderToComplete.customerName,
+        customerEmail: orderToComplete.customerEmail,
+        phoneNumber: orderToComplete.phoneNumber,
+        streetAddress: orderToComplete.streetAddress,
+        city: orderToComplete.city,
+        county: orderToComplete.county,
+        postalCode: orderToComplete.postalCode,
+        orderTotalPrice: orderToComplete.orderTotalPrice,
+        orderExtraNotes: orderToComplete.orderExtraNotes,
+        items: orderToComplete.items,
+        fullAddress: orderToComplete.fullAddress,
+      );
+
+      // Immediately update the UI
+      _myOrders.removeAt(orderIndex);
+      _completedOrders.insert(0, completedOrder);
+      notifyListeners();
+    }
+
+    try {
+      // Then make the API call
+      await ApiService.updateOrderStatus(orderId, 'blue', driverId);
+    } catch (e) {
+      // Rollback the optimistic update on error
+      if (orderToComplete != null) {
+        _completedOrders.removeWhere((order) => order.orderId == orderId);
+        _myOrders.add(orderToComplete);
+        notifyListeners();
+      }
+
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
+  Future<void> removeOrder(int orderId) async {
+    try {
+      // Update order status to remove driver assignment (set driver_id to null)
+      await ApiService.removeDriverFromOrder(orderId);
+
+      // Move order from my orders back to all orders
       final orderIndex = _myOrders.indexWhere(
             (order) => order.orderId == orderId,
       );
@@ -143,86 +522,37 @@ class OrdersProvider extends ChangeNotifier {
       if (orderIndex != -1) {
         final order = _myOrders[orderIndex];
         _myOrders.removeAt(orderIndex);
-        _completedOrders.add(order);
-        print('📋 OrdersProvider: Order moved from My Orders to Completed Orders');
-        print('   My Orders count: ${_myOrders.length}');
-        print('   Completed Orders count: ${_completedOrders.length}');
+
+        // Create a new order object with driverId set to null
+        final updatedOrder = Order(
+          orderId: order.orderId,
+          paymentType: order.paymentType,
+          transactionId: order.transactionId,
+          orderType: order.orderType,
+          driverId: null, // Remove driver assignment
+          status: order.status,
+          createdAt: order.createdAt,
+          changeDue: order.changeDue,
+          orderSource: order.orderSource,
+          customerName: order.customerName,
+          customerEmail: order.customerEmail,
+          phoneNumber: order.phoneNumber,
+          streetAddress: order.streetAddress,
+          city: order.city,
+          county: order.county,
+          postalCode: order.postalCode,
+          orderTotalPrice: order.orderTotalPrice,
+          orderExtraNotes: order.orderExtraNotes,
+          items: order.items,
+          fullAddress: order.fullAddress,
+        );
+
+        _allOrders.add(updatedOrder);
         notifyListeners();
-      } else {
-        print('⚠️ OrdersProvider: Order $orderId not found in My Orders');
       }
     } catch (e) {
-      print('❌ OrdersProvider: Error completing order: $e');
       _error = e.toString();
       notifyListeners();
-    }
-  }
-
-  Future<void> handleSocketUpdate(Map<String, dynamic> data) async {
-    print('🔌 OrdersProvider: Socket update received: $data');
-
-    // Extract the relevant fields from socket data
-    final newStatus = data['new_status'];
-    final newDriverId = data['new_driver_id'];
-    final orderId = data['order_id'];
-
-    print('🔌 OrdersProvider: Socket data analysis:');
-    print('   - Order ID: $orderId');
-    print('   - New Status: $newStatus');
-    print('   - New Driver ID: $newDriverId');
-
-    // Check if this is a new order that should be added to "All Orders"
-    if (newStatus == 'green' && newDriverId == null && orderId != null) {
-      print('🔌 OrdersProvider: Socket update matches criteria for new order');
-      print('🔌 OrdersProvider: Fetching order details for order ID: $orderId');
-
-      try {
-        // Fetch the complete order details
-        final order = await ApiService.getOrderDetails(orderId);
-
-        print('🔌 OrdersProvider: Order details fetched successfully');
-        print('   - Order Type: ${order.orderType}');
-        print('   - Status: ${order.status}');
-        print('   - Driver ID: ${order.driverId}');
-
-        // Check if this is a delivery order
-        if (order.orderType == 'delivery') {
-          print('🔌 OrdersProvider: Order is a delivery order, adding to All Orders');
-
-          // Check if order already exists in any of our lists
-          bool orderExists = _allOrders.any((existingOrder) => existingOrder.orderId == order.orderId) ||
-              _myOrders.any((existingOrder) => existingOrder.orderId == order.orderId) ||
-              _completedOrders.any((existingOrder) => existingOrder.orderId == order.orderId);
-
-          if (!orderExists) {
-            // Add to all orders since it's a new delivery order with green status and no driver
-            _allOrders.add(order);
-            print('✅ OrdersProvider: New delivery order added to All Orders');
-            print('   All Orders count: ${_allOrders.length}');
-            notifyListeners();
-          } else {
-            print('⚠️ OrdersProvider: Order already exists in one of the lists, skipping...');
-          }
-        } else {
-          print('🔌 OrdersProvider: Order is not a delivery order (${order.orderType}), ignoring...');
-        }
-      } catch (e) {
-        print('❌ OrdersProvider: Error fetching order details: $e');
-        // If we can't fetch details, fall back to reloading all orders
-        print('🔄 OrdersProvider: Falling back to full reload...');
-        loadOrders();
-      }
-    } else {
-      print('⚠️ OrdersProvider: Socket update does not match criteria for new order');
-      print('   Expected: status=green, driver_id=null, order_id!=null');
-      print('   Received: status=$newStatus, driver_id=$newDriverId, order_id=$orderId');
-
-      // For other socket updates, we might want to reload orders to stay in sync
-      // This handles cases like order status changes, driver assignments, etc.
-      if (orderId != null) {
-        print('🔄 OrdersProvider: Reloading orders to maintain sync...');
-        loadOrders();
-      }
     }
   }
 }

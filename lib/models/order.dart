@@ -22,6 +22,7 @@ class OrderItem {
       itemTotalPrice: _parseDouble(json['item_total_price']),
     );
   }
+
   static double _parseDouble(dynamic value) {
     if (value == null) return 0.0;
     if (value is double) return value;
@@ -38,8 +39,8 @@ class Order {
   final String paymentType;
   final String? transactionId;
   final String orderType;
-  final int? driverId;
-  final String status;
+  late final int? driverId;
+  late final String status;
   final DateTime createdAt;
   final double changeDue;
   final String orderSource;
@@ -73,12 +74,31 @@ class Order {
     required this.postalCode,
     required this.orderTotalPrice,
     this.orderExtraNotes,
-    required this.items,
+    required this.items, required String fullAddress,
   });
 
   String get fullAddress => '$streetAddress, $city, $county, $postalCode';
 
   factory Order.fromJson(Map<String, dynamic> json) {
+    // Enhanced price parsing with multiple fallback strategies
+    double totalPrice = _extractTotalPrice(json);
+
+    // Parse items first to potentially calculate total from items if main total is 0
+    List<OrderItem> orderItems = [];
+    if (json['items'] != null && json['items'] is List) {
+      orderItems = (json['items'] as List)
+          .map((item) => OrderItem.fromJson(item))
+          .toList();
+    }
+
+    // If total price is 0 but we have items, calculate from items
+    if (totalPrice == 0.0 && orderItems.isNotEmpty) {
+      double calculatedTotal = orderItems.fold(0.0, (sum, item) => sum + item.itemTotalPrice);
+      if (calculatedTotal > 0.0) {
+        totalPrice = calculatedTotal;
+      }
+    }
+
     return Order(
       orderId: json['order_id'] ?? 0,
       paymentType: json['payment_type'] ?? '',
@@ -96,12 +116,39 @@ class Order {
       city: json['city'] ?? '',
       county: json['county'] ?? '',
       postalCode: json['postal_code'] ?? '',
-      orderTotalPrice: _parseDouble(json['total_price']),
+      orderTotalPrice: totalPrice,
       orderExtraNotes: json['extra_notes'],
-      items: (json['items'] as List?)
-          ?.map((item) => OrderItem.fromJson(item))
-          .toList() ?? [],
+      items: orderItems, fullAddress: '',
     );
+  }
+
+  // Enhanced method to extract total price from JSON with multiple fallback strategies
+  static double _extractTotalPrice(Map<String, dynamic> json) {
+    // List of possible field names for total price
+    final possibleFields = [
+      'total_price',
+      'order_total_price',
+      'orderTotalPrice',
+      'price',
+      'total',
+      'amount',
+      'order_amount',
+      'orderAmount',
+      'totalPrice',
+      'orderTotal'
+    ];
+
+    // Try each possible field
+    for (String field in possibleFields) {
+      if (json.containsKey(field)) {
+        final parsed = _parseDouble(json[field]);
+        if (parsed > 0.0) {
+          return parsed;
+        }
+      }
+    }
+
+    return 0.0;
   }
 
   // Helper method to safely parse double values from dynamic input
@@ -110,6 +157,7 @@ class Order {
     if (value is double) return value;
     if (value is int) return value.toDouble();
     if (value is String) {
+      if (value.isEmpty) return 0.0;
       return double.tryParse(value) ?? 0.0;
     }
     return 0.0;
