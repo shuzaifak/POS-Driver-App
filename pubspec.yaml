@@ -41,6 +41,7 @@ dependencies:
   flutter_local_notifications: ^19.3.1
   permission_handler: ^11.3.1
   pdf: ^3.11.3
+  url_launcher: ^6.3.2
   printing: ^5.14.2
   intl: ^0.20.2
 

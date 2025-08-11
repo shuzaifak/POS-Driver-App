@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
 import '../models/order.dart';
 import '../providers/auth_provider.dart';
 import '../providers/orders_provider.dart';
@@ -13,11 +15,11 @@ class OrderCard extends StatelessWidget {
   final int? deliveryNumber; // Add this new parameter
 
   const OrderCard({
-    Key? key,
+    super.key,
     required this.order,
     required this.orderType,
     this.deliveryNumber, // Add this optional parameter
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -94,19 +96,20 @@ class OrderCard extends StatelessWidget {
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
+                              horizontal: 12, // Increased padding
+                              vertical: 6,    // Increased padding
                             ),
                             decoration: BoxDecoration(
                               color: AppTheme.surgeColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10), // Slightly larger radius
                             ),
                             child: Text(
                               '#${order.orderId}',
                               style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 16,               // Increased from 12 to 16
+                                fontWeight: FontWeight.w800, // Increased from w600 to w800
                                 color: AppTheme.surgeColor,
+                                letterSpacing: 0.5,         // Added letter spacing for boldness
                               ),
                             ),
                           ),
@@ -251,79 +254,131 @@ class OrderCard extends StatelessWidget {
 
                 const SizedBox(height: 20),
 
-                // Customer Info
-                Row(
+                // Customer and Address Info - Aligned Icons
+                Column(
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: AppTheme.lightGrayColor,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.person_outline_rounded,
-                        size: 20,
-                        color: AppTheme.textColor,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            order.customerName,
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textColor,
-                            ),
+                    // Customer Info
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center, // Align icons center
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppTheme.lightGrayColor,
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            order.phoneNumber,
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: AppTheme.subtitleColor,
-                            ),
+                          child: const Icon(
+                            Icons.person_outline_rounded,
+                            size: 20,
+                            color: AppTheme.textColor,
                           ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // Address
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: AppTheme.lightGrayColor,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.location_on_outlined,
-                        size: 20,
-                        color: AppTheme.textColor,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        order.fullAddress,
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: AppTheme.subtitleColor,
-                          height: 1.4,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                order.customerName,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textColor,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                order.phoneNumber,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: AppTheme.subtitleColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Address (Clickable for Google Maps) - Perfectly Aligned Icon
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => _openInGoogleMaps(context, order.fullAddress),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8), // Only vertical padding
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center, // Align icons center
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.lightGrayColor,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.location_on_outlined,
+                                  size: 20,
+                                  color: AppTheme.textColor,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      order.fullAddress,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14,
+                                        color: AppTheme.subtitleColor,
+                                        height: 1.4,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.navigation_rounded,
+                                          size: 14,
+                                          color: AppTheme.surgeColor,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Tap for directions',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 12,
+                                            color: AppTheme.surgeColor,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.surgeColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.open_in_new_rounded,
+                                  size: 16,
+                                  color: AppTheme.surgeColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -369,6 +424,210 @@ class OrderCard extends StatelessWidget {
   }
 
 
+  // Method to open Google Maps with directions - Direct Navigation
+  void _openInGoogleMaps(BuildContext context, String address) async {
+    try {
+      // Show loading feedback
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Opening Google Maps...',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+          ),
+          duration: const Duration(seconds: 2),
+          backgroundColor: AppTheme.surgeColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+
+      // Encode the address for URL
+      final encodedAddress = Uri.encodeComponent(address);
+
+      // Different URL schemes to try (in order of preference)
+      final List<String> mapUrls = [
+        // Google Maps app with directions (most preferred)
+        'google.navigation:q=$encodedAddress',
+        // Google Maps app fallback
+        'comgooglemaps://?q=$encodedAddress',
+        // Google Maps web with directions
+        'https://www.google.com/maps/dir/?api=1&destination=$encodedAddress',
+        // Google Maps web search
+        'https://maps.google.com/?q=$encodedAddress',
+        // Generic geo intent (Android)
+        'geo:0,0?q=$encodedAddress',
+      ];
+
+      bool mapOpened = false;
+
+      // Try each URL scheme
+      for (String urlString in mapUrls) {
+        try {
+          final uri = Uri.parse(urlString);
+
+          // Check if this URL can be launched
+          bool canLaunch = await canLaunchUrl(uri);
+
+          if (canLaunch) {
+            await launchUrl(
+              uri,
+              mode: LaunchMode.externalApplication,
+            );
+            mapOpened = true;
+            debugPrint('Successfully opened maps with: $urlString');
+            break;
+          }
+        } catch (e) {
+          debugPrint('Failed to open with $urlString: $e');
+          continue;
+        }
+      }
+
+      // If no URL worked, show fallback dialog
+      if (!mapOpened) {
+        _showMapFallbackDialog(context, address);
+      }
+
+    } catch (e) {
+      debugPrint('Error in _openInGoogleMaps: $e');
+      _showMapFallbackDialog(context, address);
+    }
+  }
+
+  void _showMapFallbackDialog(BuildContext context, String address) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.map_outlined,
+                  color: Colors.orange.shade600,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Open in Maps',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textColor,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Please install Google Maps or use your device\'s default maps app with this address:',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: AppTheme.subtitleColor,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.lightGrayColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppTheme.surgeColor.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  address,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () {
+                      // Copy to clipboard
+                      Clipboard.setData(ClipboardData(text: address));
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Address copied to clipboard!'),
+                          backgroundColor: AppTheme.surgeColor,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                    child: Text(
+                      'Copy Address',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.surgeColor,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppTheme.surgeColor,
+                          AppTheme.surgeColor.withOpacity(0.8),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        'Close',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildStatusBadge(String status) {
     Color color;
     String text;
@@ -397,7 +656,10 @@ class OrderCard extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12, // Increased from 10 to 12
+        vertical: 8,    // Increased from 6 to 8
+      ),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
@@ -411,15 +673,15 @@ class OrderCard extends StatelessWidget {
         children: [
           Icon(
             icon,
-            size: 14,
+            size: 18, // Increased from 14 to 18
             color: color,
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 6), // Increased spacing from 4 to 6
           Text(
             text,
             style: GoogleFonts.poppins(
               color: color,
-              fontSize: 12,
+              fontSize: 14, // Increased from 12 to 14
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -481,6 +743,7 @@ class OrderCard extends StatelessWidget {
       }
     }
   }
+
   void _showMyOrderActionsDialog(BuildContext context, AuthProvider authProvider, OrdersProvider ordersProvider) {
     showDialog(
       context: context,

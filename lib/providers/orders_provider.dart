@@ -360,7 +360,7 @@ class OrdersProvider extends ChangeNotifier {
         paymentType: acceptedOrder.paymentType,
         transactionId: acceptedOrder.transactionId,
         orderType: acceptedOrder.orderType,
-        driverId: driverId, // Assign driver
+        driverId: driverId,
         status: acceptedOrder.status,
         createdAt: acceptedOrder.createdAt,
         changeDue: acceptedOrder.changeDue,
@@ -456,56 +456,96 @@ class OrdersProvider extends ChangeNotifier {
   }
 
   Future<void> completeOrder(int orderId, int driverId) async {
-    // First, optimistically update the UI
+    print('🏁 OrdersProvider: Starting order completion for order $orderId');
+
+    // Find the order first
     final orderIndex = _myOrders.indexWhere((order) => order.orderId == orderId);
-    Order? orderToComplete;
-
-    if (orderIndex != -1) {
-      orderToComplete = _myOrders[orderIndex];
-
-      // Create completed order with blue status
-      final completedOrder = Order(
-        orderId: orderToComplete.orderId,
-        paymentType: orderToComplete.paymentType,
-        transactionId: orderToComplete.transactionId,
-        orderType: orderToComplete.orderType,
-        driverId: orderToComplete.driverId,
-        status: 'blue', // Update status to completed
-        createdAt: orderToComplete.createdAt,
-        changeDue: orderToComplete.changeDue,
-        orderSource: orderToComplete.orderSource,
-        customerName: orderToComplete.customerName,
-        customerEmail: orderToComplete.customerEmail,
-        phoneNumber: orderToComplete.phoneNumber,
-        streetAddress: orderToComplete.streetAddress,
-        city: orderToComplete.city,
-        county: orderToComplete.county,
-        postalCode: orderToComplete.postalCode,
-        orderTotalPrice: orderToComplete.orderTotalPrice,
-        orderExtraNotes: orderToComplete.orderExtraNotes,
-        items: orderToComplete.items,
-        fullAddress: orderToComplete.fullAddress,
-      );
-
-      // Immediately update the UI
-      _myOrders.removeAt(orderIndex);
-      _completedOrders.insert(0, completedOrder);
-      notifyListeners();
+    if (orderIndex == -1) {
+      print('❌ OrdersProvider: Order not found in My Orders');
+      throw Exception('Order not found');
     }
 
+    final orderToComplete = _myOrders[orderIndex];
+
+    // Create completed order with blue status
+    final completedOrder = Order(
+      orderId: orderToComplete.orderId,
+      paymentType: orderToComplete.paymentType,
+      transactionId: orderToComplete.transactionId,
+      orderType: orderToComplete.orderType,
+      driverId: orderToComplete.driverId,
+      status: 'blue', // Update status to completed
+      createdAt: orderToComplete.createdAt,
+      changeDue: orderToComplete.changeDue,
+      orderSource: orderToComplete.orderSource,
+      customerName: orderToComplete.customerName,
+      customerEmail: orderToComplete.customerEmail,
+      phoneNumber: orderToComplete.phoneNumber,
+      streetAddress: orderToComplete.streetAddress,
+      city: orderToComplete.city,
+      county: orderToComplete.county,
+      postalCode: orderToComplete.postalCode,
+      orderTotalPrice: orderToComplete.orderTotalPrice,
+      orderExtraNotes: orderToComplete.orderExtraNotes,
+      items: orderToComplete.items,
+      fullAddress: orderToComplete.fullAddress,
+    );
+
+    // IMMEDIATELY update the UI for fast response
+    _myOrders.removeAt(orderIndex);
+    _completedOrders.insert(0, completedOrder);
+    notifyListeners();
+
+    print('⚡ OrdersProvider: UI updated optimistically');
+
     try {
-      // Then make the API call
+      // Make API call in background
+      print('📡 OrdersProvider: Making API call...');
       await ApiService.updateOrderStatus(orderId, 'blue', driverId);
+      print('✅ OrdersProvider: API call successful');
+
     } catch (e) {
-      // Rollback the optimistic update on error
-      if (orderToComplete != null) {
-        _completedOrders.removeWhere((order) => order.orderId == orderId);
-        _myOrders.add(orderToComplete);
+      print('❌ OrdersProvider: API call failed: $e');
+
+      // ROLLBACK the optimistic update
+      _completedOrders.removeWhere((order) => order.orderId == orderId);
+      _myOrders.insert(0, orderToComplete); // Put it back at the top
+
+      // Set error for UI feedback
+      _error = 'Failed to complete order. Please try again.';
+      notifyListeners();
+
+      // RETRY LOGIC - Try once more after a short delay
+      print('🔄 OrdersProvider: Retrying API call in 2 seconds...');
+      try {
+        await Future.delayed(Duration(seconds: 2));
+        await ApiService.updateOrderStatus(orderId, 'blue', driverId);
+
+        print('✅ OrdersProvider: Retry successful, re-applying completion...');
+
+        // Re-apply the completion if retry succeeds
+        final retryOrderIndex = _myOrders.indexWhere((order) => order.orderId == orderId);
+        if (retryOrderIndex != -1) {
+          _myOrders.removeAt(retryOrderIndex);
+          _completedOrders.insert(0, completedOrder);
+          _error = null; // Clear error
+          notifyListeners();
+        }
+
+      } catch (retryError) {
+        print('❌ OrdersProvider: Retry also failed: $retryError');
+
+        // Do a silent refresh to ensure consistency
+        Timer(Duration(seconds: 1), () {
+          _performSilentRefresh();
+        });
+
+        // Keep the error state for user feedback
+        _error = 'Failed to complete order after retry. Order may complete shortly.';
         notifyListeners();
       }
 
-      _error = e.toString();
-      notifyListeners();
+      // Don't rethrow - let the UI show the error but don't crash
     }
   }
 
