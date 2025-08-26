@@ -15,6 +15,18 @@ class Driver {
     required this.isActive,
   });
 
+  // Convert Driver object to JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'username': username,
+      'email': email,
+      'phone_number': phoneNumber,
+      'is_active': isActive,
+    };
+  }
+
   factory Driver.fromJson(Map<String, dynamic> json) {
     return Driver(
       id: json['id'],

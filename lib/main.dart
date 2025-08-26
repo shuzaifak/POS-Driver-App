@@ -78,12 +78,27 @@ class _AppWrapper extends StatefulWidget {
 class _AppWrapperState extends State<_AppWrapper> with WidgetsBindingObserver {
   bool _callbackSetup = false;
   bool _socketConnectInitiated = false;
+  bool _authInitialized = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     print('🚀 _AppWrapper: initState called');
+
+    // Initialize AuthProvider to restore login state
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeAuth();
+    });
+  }
+
+  Future<void> _initializeAuth() async {
+    if (_authInitialized) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await authProvider.initialize();
+    _authInitialized = true;
+    print('🔄 AuthProvider initialized');
   }
 
   @override
@@ -168,7 +183,16 @@ class _AppWrapperState extends State<_AppWrapper> with WidgetsBindingObserver {
 
     return Consumer2<AuthProvider, SocketService>(
       builder: (context, authProvider, socketService, child) {
-        print('🏗️ Consumer2 builder called - isLoggedIn: ${authProvider.isLoggedIn}, socketConnected: ${socketService.isConnected}');
+        print('🏗️ Consumer2 builder called - isLoggedIn: ${authProvider.isLoggedIn}, socketConnected: ${socketService.isConnected}, isInitialized: ${authProvider.isInitialized}');
+
+        // Show loading screen until auth is initialized
+        if (!authProvider.isInitialized) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
 
         // Handle user authentication and socket connection
         if (authProvider.isLoggedIn) {

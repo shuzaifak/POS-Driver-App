@@ -23,11 +23,11 @@ class OrdersProvider extends ChangeNotifier {
 // Add this method to start smart polling
   void startSmartPolling() {
     if (_isPollingEnabled) {
-      print('🔄 OrdersProvider: Polling already enabled');
+      print('OrdersProvider: Polling already enabled');
       return;
     }
 
-    print('🔄 OrdersProvider: Starting smart polling for live updates');
+    print('OrdersProvider: Starting smart polling for live updates');
     _isPollingEnabled = true;
 
     // Poll every 10 seconds for live updates
@@ -40,14 +40,14 @@ class OrdersProvider extends ChangeNotifier {
       try {
         await _performSmartUpdate();
       } catch (e) {
-        print('❌ OrdersProvider: Smart polling error: $e');
+        print('OrdersProvider: Smart polling error: $e');
       }
     });
   }
 
 // Smart update that only updates if there are actual changes
   Future<void> _performSmartUpdate() async {
-    print('🔍 OrdersProvider: Performing smart update check...');
+    print('OrdersProvider: Performing smart update check...');
 
     try {
       final orders = await ApiService.getTodayOrders();
@@ -59,43 +59,46 @@ class OrdersProvider extends ChangeNotifier {
       bool hasChanges = _detectChanges(orders);
 
       if (hasChanges) {
-        print('🆕 OrdersProvider: Changes detected, updating UI');
+        print('OrdersProvider: Changes detected, updating UI');
         _updateOrderLists(orders);
         notifyListeners();
       } else {
-        print('✅ OrdersProvider: No changes detected, UI update skipped');
+        print('OrdersProvider: No changes detected, UI update skipped');
       }
 
     } catch (e) {
-      print('❌ OrdersProvider: Smart update failed: $e');
+      print('OrdersProvider: Smart update failed: $e');
     }
   }
 
 // Detect changes in order lists
   bool _detectChanges(List<Order> newOrders) {
-    // Filter new orders for comparison
+    // Filter new orders for comparison - only process TVP orders
     final newAllOrders = newOrders.where((order) {
       return order.driverId == null &&
           order.status == 'green' &&
-          order.orderType == 'delivery';
+          order.orderType == 'delivery' &&
+          order.brandName == 'TVP';
     }).toList();
 
     final newMyOrders = newOrders.where((order) {
       return order.driverId != null &&
           order.status == 'green' &&
-          order.orderType == 'delivery';
+          order.orderType == 'delivery' &&
+          order.brandName == 'TVP';
     }).toList();
 
     final newCompletedOrders = newOrders.where((order) {
       return order.status == 'blue' &&
-          order.orderType == 'delivery';
+          order.orderType == 'delivery' &&
+          order.brandName == 'TVP';
     }).toList();
 
     // Check if counts changed
     if (newAllOrders.length != _allOrders.length ||
         newMyOrders.length != _myOrders.length ||
         newCompletedOrders.length != _completedOrders.length) {
-      print('📊 OrdersProvider: Order count changes detected');
+      print('OrdersProvider: Order count changes detected');
       return true;
     }
 
@@ -105,7 +108,7 @@ class OrdersProvider extends ChangeNotifier {
 
     if (!currentAllOrderIds.containsAll(newAllOrderIds) ||
         !newAllOrderIds.containsAll(currentAllOrderIds)) {
-      print('📊 OrdersProvider: Order ID changes detected in All Orders');
+      print('OrdersProvider: Order ID changes detected in All Orders');
       return true;
     }
 
@@ -114,7 +117,7 @@ class OrdersProvider extends ChangeNotifier {
 
 // Stop polling when not needed
   void stopSmartPolling() {
-    print('⏹️ OrdersProvider: Stopping smart polling');
+    print('OrdersProvider: Stopping smart polling');
     _isPollingEnabled = false;
     _pollingTimer?.cancel();
     _pollingTimer = null;
@@ -162,91 +165,102 @@ class OrdersProvider extends ChangeNotifier {
   }
 
   void _updateOrderLists(List<Order> orders) {
-    // Filter for All Orders (driver_id == null, status == 'green', order_type == 'delivery')
+    // Filter for All Orders (driver_id == null, status == 'green', order_type == 'delivery', brand_name == 'TVP')
     _allOrders = orders.where((order) {
       bool matchesDriverId = order.driverId == null;
       bool matchesStatus = order.status == 'green';
       bool matchesOrderType = order.orderType == 'delivery';
+      bool matchesBrand = order.brandName == 'TVP';
 
-      return matchesDriverId && matchesStatus && matchesOrderType;
+      return matchesDriverId && matchesStatus && matchesOrderType && matchesBrand;
     }).toList();
 
-    // Filter for My Orders (driver_id != null, status == 'green', order_type == 'delivery')
+    // Filter for My Orders (driver_id != null, status == 'green', order_type == 'delivery', brand_name == 'TVP')
     _myOrders = orders.where((order) {
       bool matchesDriverId = order.driverId != null;
       bool matchesStatus = order.status == 'green';
       bool matchesOrderType = order.orderType == 'delivery';
+      bool matchesBrand = order.brandName == 'TVP';
 
-      return matchesDriverId && matchesStatus && matchesOrderType;
+      return matchesDriverId && matchesStatus && matchesOrderType && matchesBrand;
     }).toList();
 
-    // Filter for Completed Orders (status == 'blue', order_type == 'delivery')
+    // Filter for Completed Orders (status == 'blue', order_type == 'delivery', brand_name == 'TVP')
     _completedOrders = orders.where((order) {
       bool matchesStatus = order.status == 'blue';
       bool matchesOrderType = order.orderType == 'delivery';
+      bool matchesBrand = order.brandName == 'TVP';
 
-      return matchesStatus && matchesOrderType;
+      return matchesStatus && matchesOrderType && matchesBrand;
     }).toList();
   }
 
   void handleSocketUpdate(Map<String, dynamic> data) {
-    print('🔄 OrdersProvider: Handling socket update: $data');
+    print('OrdersProvider: Handling socket update: $data');
 
     try {
       // IGNORE TEST DATA to prevent unnecessary processing
       if (data['test'] == true || data['heartbeat'] == true) {
-        print('🧪 OrdersProvider: Ignoring test/heartbeat socket data');
+        print('OrdersProvider: Ignoring test/heartbeat socket data');
         return;
       }
 
       final orderId = data['order_id'];
       final newStatus = data['new_status'] ?? data['status'];
       final newDriverId = data['new_driver_id'] ?? data['driver_id'];
+      final brandName = data['brand_name'];
       final isNewOrderEvent = data['_is_new_order_event'] == true;
       final shouldFetchDetails = data['_fetch_order_details'] == true;
 
-      print('📦 OrdersProvider: Socket update details:');
+      print('OrdersProvider: Socket update details:');
       print('   - Order ID: $orderId');
       print('   - New Status: $newStatus');
       print('   - New Driver ID: $newDriverId');
+      print('   - Brand Name: $brandName');
       print('   - Is New Order Event: $isNewOrderEvent');
       print('   - Should Fetch Details: $shouldFetchDetails');
 
+      // Filter: Only process TVP orders
+      if (brandName != 'TVP') {
+        print('OrdersProvider: Order not for TVP brand ($brandName), ignoring...');
+        return;
+      }
+
       // PRIORITY: Handle potential new order (status=green, driver_id=null)
       if (newStatus == 'green' && newDriverId == null && orderId != null) {
-        print('🆕 OrdersProvider: Processing potential new order: $orderId');
+        print('OrdersProvider: Processing potential new TVP order: $orderId');
         _handlePotentialNewOrder(orderId);
         return;
       }
 
       // Handle order accepted by another driver
       if (newStatus == 'green' && newDriverId != null) {
-        print('👤 OrdersProvider: Order accepted by driver $newDriverId');
+        print('OrdersProvider: TVP Order accepted by driver $newDriverId');
         _handleOrderAcceptedByOther(orderId);
         return;
       }
 
       // Handle order completion
       if (newStatus == 'blue') {
-        print('🏁 OrdersProvider: Order completed');
+        print('OrdersProvider: TVP Order completed');
         _handleOrderCompleted(orderId, newDriverId);
         return;
       }
 
       // Handle other status changes with minimal reload
-      print('🔄 OrdersProvider: Other status change, doing silent refresh...');
+      print('OrdersProvider: Other TVP status change, doing silent refresh...');
       _performSilentRefresh();
 
     } catch (e) {
-      print('❌ OrdersProvider: Error handling socket update: $e');
-      print('❌ Stack trace: ${StackTrace.current}');
+      print('OrdersProvider: Error handling socket update: $e');
+      print('Stack trace: ${StackTrace.current}');
       _performSilentRefresh(); // Fallback to silent refresh
     }
   }
 
 // New method to handle potential new orders
   Future<void> _handlePotentialNewOrder(int orderId) async {
-    print('🆕 OrdersProvider: Checking if order $orderId is a new delivery order');
+    print('OrdersProvider: Checking if order $orderId is a new TVP delivery order');
 
     try {
       // Check if order already exists to avoid duplicates
@@ -255,55 +269,57 @@ class OrdersProvider extends ChangeNotifier {
           _completedOrders.any((order) => order.orderId == orderId);
 
       if (orderExists) {
-        print('⚠️ OrdersProvider: Order $orderId already exists, skipping');
+        print('OrdersProvider: Order $orderId already exists, skipping');
         return;
       }
 
-      print('🔍 OrdersProvider: Fetching order details for order $orderId');
+      print('OrdersProvider: Fetching order details for TVP order $orderId');
 
       // Fetch order details using the API
       final order = await ApiService.getOrderDetails(orderId);
 
-      print('📦 OrdersProvider: Retrieved order details:');
+      print('OrdersProvider: Retrieved order details:');
       print('   - Order ID: ${order.orderId}');
       print('   - Order Type: ${order.orderType}');
       print('   - Status: ${order.status}');
       print('   - Driver ID: ${order.driverId}');
       print('   - Customer: ${order.customerName}');
+      print('   - Brand Name: ${order.brandName}');
 
-      // Only add if it's a delivery order with green status and no driver
+      // Only add if it's a TVP delivery order with green status and no driver
       if (order.orderType == 'delivery' &&
           order.status == 'green' &&
-          order.driverId == null) {
+          order.driverId == null &&
+          order.brandName == 'TVP') {
 
-        print('✅ OrdersProvider: Adding new delivery order to All Orders');
+        print('OrdersProvider: Adding new TVP delivery order to All Orders');
 
         // Add to beginning of all orders (newest first)
         _allOrders.insert(0, order);
 
-        print('📋 OrdersProvider: All Orders count: ${_allOrders.length}');
+        print('OrdersProvider: All Orders count: ${_allOrders.length}');
 
         // Notify listeners for immediate UI update
         notifyListeners();
 
-        print('🔔 OrdersProvider: New order added successfully and UI updated');
+        print('OrdersProvider: New TVP order added successfully and UI updated');
 
       } else {
-        print('⚠️ OrdersProvider: Order does not qualify for All Orders');
-        print('   - Expected: orderType=delivery, status=green, driverId=null');
-        print('   - Actual: orderType=${order.orderType}, status=${order.status}, driverId=${order.driverId}');
+        print('OrdersProvider: Order does not qualify for All Orders');
+        print('   - Expected: orderType=delivery, status=green, driverId=null, brandName=TVP');
+        print('   - Actual: orderType=${order.orderType}, status=${order.status}, driverId=${order.driverId}, brandName=${order.brandName}');
       }
 
     } catch (e) {
-      print('❌ OrdersProvider: Error fetching new order details: $e');
-      print('❌ Performing silent refresh as fallback');
+      print('OrdersProvider: Error fetching new order details: $e');
+      print('Performing silent refresh as fallback');
       _performSilentRefresh();
     }
   }
 
 // New method for silent refresh without showing loading
   Future<void> _performSilentRefresh() async {
-    print('🔄 OrdersProvider: Performing silent refresh...');
+    print('OrdersProvider: Performing silent refresh...');
 
     try {
       final orders = await ApiService.getTodayOrders();
@@ -317,10 +333,10 @@ class OrdersProvider extends ChangeNotifier {
       // Notify listeners
       notifyListeners();
 
-      print('✅ OrdersProvider: Silent refresh completed');
+      print('OrdersProvider: Silent refresh completed');
 
     } catch (e) {
-      print('❌ OrdersProvider: Silent refresh failed: $e');
+      print('OrdersProvider: Silent refresh failed: $e');
       _error = e.toString();
       notifyListeners();
     }
@@ -328,7 +344,7 @@ class OrdersProvider extends ChangeNotifier {
 
 // Add debug method to check current state
   void debugPrintCurrentState() {
-    print('📊 OrdersProvider: Current State Debug:');
+    print('OrdersProvider: Current State Debug:');
     print('   - All Orders: ${_allOrders.length}');
     print('   - My Orders: ${_myOrders.length}');
     print('   - Completed Orders: ${_completedOrders.length}');
@@ -336,9 +352,9 @@ class OrdersProvider extends ChangeNotifier {
     print('   - Error: $_error');
 
     if (_allOrders.isNotEmpty) {
-      print('📋 All Orders Details:');
+      print('All Orders Details:');
       for (var order in _allOrders.take(3)) { // Show first 3
-        print('   - Order ${order.orderId}: ${order.customerName} - \$${order.orderTotalPrice}');
+        print('   - Order ${order.orderId}: ${order.customerName} - \$${order.orderTotalPrice} (${order.brandName})');
       }
     }
   }
@@ -375,7 +391,7 @@ class OrdersProvider extends ChangeNotifier {
         orderTotalPrice: acceptedOrder.orderTotalPrice,
         orderExtraNotes: acceptedOrder.orderExtraNotes,
         items: acceptedOrder.items,
-        fullAddress: acceptedOrder.fullAddress,
+        brandName: acceptedOrder.brandName, // Include brand name
       );
 
       // Immediately update UI
@@ -402,20 +418,20 @@ class OrdersProvider extends ChangeNotifier {
   }
 
   Future<void> _handleOrderAcceptedByOther(int orderId) async {
-    print('👤 OrdersProvider: Order $orderId was accepted by another driver');
+    print('OrdersProvider: TVP Order $orderId was accepted by another driver');
 
     // Remove from all orders if it exists
     final orderIndex = _allOrders.indexWhere((order) => order.orderId == orderId);
     if (orderIndex != -1) {
       _allOrders.removeAt(orderIndex);
-      print('📋 OrdersProvider: Order removed from All Orders');
+      print('OrdersProvider: Order removed from All Orders');
       print('   All Orders count: ${_allOrders.length}');
       notifyListeners();
     }
   }
 
   Future<void> _handleOrderCompleted(int orderId, int? driverId) async {
-    print('🏁 OrdersProvider: Order $orderId was completed');
+    print('OrdersProvider: TVP Order $orderId was completed');
 
     // If it's in my orders, move to completed
     final myOrderIndex = _myOrders.indexWhere((order) => order.orderId == orderId);
@@ -443,12 +459,12 @@ class OrdersProvider extends ChangeNotifier {
         orderTotalPrice: order.orderTotalPrice,
         orderExtraNotes: order.orderExtraNotes,
         items: order.items,
-        fullAddress: order.fullAddress,
+        brandName: order.brandName, // Include brand name
       );
 
       _myOrders.removeAt(myOrderIndex);
       _completedOrders.insert(0, completedOrder); // Insert at beginning for newest first
-      print('📋 OrdersProvider: Order moved from My Orders to Completed Orders');
+      print('OrdersProvider: Order moved from My Orders to Completed Orders');
       print('   My Orders count: ${_myOrders.length}');
       print('   Completed Orders count: ${_completedOrders.length}');
       notifyListeners();
@@ -456,12 +472,12 @@ class OrdersProvider extends ChangeNotifier {
   }
 
   Future<void> completeOrder(int orderId, int driverId) async {
-    print('🏁 OrdersProvider: Starting order completion for order $orderId');
+    print('OrdersProvider: Starting order completion for TVP order $orderId');
 
     // Find the order first
     final orderIndex = _myOrders.indexWhere((order) => order.orderId == orderId);
     if (orderIndex == -1) {
-      print('❌ OrdersProvider: Order not found in My Orders');
+      print('OrdersProvider: Order not found in My Orders');
       throw Exception('Order not found');
     }
 
@@ -488,7 +504,7 @@ class OrdersProvider extends ChangeNotifier {
       orderTotalPrice: orderToComplete.orderTotalPrice,
       orderExtraNotes: orderToComplete.orderExtraNotes,
       items: orderToComplete.items,
-      fullAddress: orderToComplete.fullAddress,
+      brandName: orderToComplete.brandName, // Include brand name
     );
 
     // IMMEDIATELY update the UI for fast response
@@ -496,16 +512,16 @@ class OrdersProvider extends ChangeNotifier {
     _completedOrders.insert(0, completedOrder);
     notifyListeners();
 
-    print('⚡ OrdersProvider: UI updated optimistically');
+    print('OrdersProvider: UI updated optimistically');
 
     try {
       // Make API call in background
-      print('📡 OrdersProvider: Making API call...');
+      print('OrdersProvider: Making API call...');
       await ApiService.updateOrderStatus(orderId, 'blue', driverId);
-      print('✅ OrdersProvider: API call successful');
+      print('OrdersProvider: API call successful');
 
     } catch (e) {
-      print('❌ OrdersProvider: API call failed: $e');
+      print('OrdersProvider: API call failed: $e');
 
       // ROLLBACK the optimistic update
       _completedOrders.removeWhere((order) => order.orderId == orderId);
@@ -516,12 +532,12 @@ class OrdersProvider extends ChangeNotifier {
       notifyListeners();
 
       // RETRY LOGIC - Try once more after a short delay
-      print('🔄 OrdersProvider: Retrying API call in 2 seconds...');
+      print('OrdersProvider: Retrying API call in 2 seconds...');
       try {
         await Future.delayed(Duration(seconds: 2));
         await ApiService.updateOrderStatus(orderId, 'blue', driverId);
 
-        print('✅ OrdersProvider: Retry successful, re-applying completion...');
+        print('OrdersProvider: Retry successful, re-applying completion...');
 
         // Re-apply the completion if retry succeeds
         final retryOrderIndex = _myOrders.indexWhere((order) => order.orderId == orderId);
@@ -533,7 +549,7 @@ class OrdersProvider extends ChangeNotifier {
         }
 
       } catch (retryError) {
-        print('❌ OrdersProvider: Retry also failed: $retryError');
+        print('OrdersProvider: Retry also failed: $retryError');
 
         // Do a silent refresh to ensure consistency
         Timer(Duration(seconds: 1), () {
@@ -584,7 +600,7 @@ class OrdersProvider extends ChangeNotifier {
           orderTotalPrice: order.orderTotalPrice,
           orderExtraNotes: order.orderExtraNotes,
           items: order.items,
-          fullAddress: order.fullAddress,
+          brandName: order.brandName,
         );
 
         _allOrders.add(updatedOrder);

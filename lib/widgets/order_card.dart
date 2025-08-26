@@ -21,7 +21,6 @@ class OrderCard extends StatelessWidget {
     this.deliveryNumber, // Add this optional parameter
   });
 
-  @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
@@ -95,21 +94,21 @@ class OrderCard extends StatelessWidget {
                       child: Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12, // Increased padding
-                              vertical: 6,    // Increased padding
+                            padding: EdgeInsets.symmetric(
+                              horizontal: orderType == 'my' ? 16 : 14, // Larger for picked orders
+                              vertical: orderType == 'my' ? 10 : 8,    // Larger for picked orders
                             ),
                             decoration: BoxDecoration(
                               color: AppTheme.surgeColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(10), // Slightly larger radius
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
                               '#${order.orderId}',
                               style: GoogleFonts.poppins(
-                                fontSize: 16,               // Increased from 12 to 16
-                                fontWeight: FontWeight.w800, // Increased from w600 to w800
+                                fontSize: orderType == 'my' ? 23 : 18,  // Larger for picked orders
+                                fontWeight: FontWeight.w800,
                                 color: AppTheme.surgeColor,
-                                letterSpacing: 0.5,         // Added letter spacing for boldness
+                                letterSpacing: 0.5,
                               ),
                             ),
                           ),
@@ -122,8 +121,8 @@ class OrderCard extends StatelessWidget {
                     // Action Button (only for non-completed orders)
                     if (orderType != 'completed')
                       Container(
-                        width: 36,
-                        height: 36,
+                        width: 44,
+                        height: 44,
                         decoration: BoxDecoration(
                           color: _getActionColor(orderType).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(10),
@@ -139,7 +138,7 @@ class OrderCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(10),
                             child: Icon(
                               _getActionIcon(orderType),
-                              size: 18,
+                              size: 22,
                               color: _getActionColor(orderType),
                             ),
                           ),
@@ -259,7 +258,7 @@ class OrderCard extends StatelessWidget {
                   children: [
                     // Customer Info
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.center, // Align icons center
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Container(
                           width: 40,
@@ -303,16 +302,17 @@ class OrderCard extends StatelessWidget {
 
                     const SizedBox(height: 16),
 
-                    // Address (Clickable for Google Maps) - Perfectly Aligned Icon
-                    Material(
+                    // Address - Conditionally Clickable
+                    orderType == 'my'
+                        ? Material(
                       color: Colors.transparent,
                       child: InkWell(
                         onTap: () => _openInGoogleMaps(context, order.fullAddress),
                         borderRadius: BorderRadius.circular(12),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8), // Only vertical padding
+                          padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center, // Align icons center
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Container(
                                 width: 40,
@@ -379,6 +379,41 @@ class OrderCard extends StatelessWidget {
                             ],
                           ),
                         ),
+                      ),
+                    )
+                        : // Non-clickable address for ALL section
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppTheme.lightGrayColor,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.location_on_outlined,
+                              size: 20,
+                              color: AppTheme.textColor,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              order.fullAddress,
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: AppTheme.subtitleColor,
+                                height: 1.4,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -785,72 +820,10 @@ class OrderCard extends StatelessWidget {
             ),
           ),
           actions: [
-            // Remove Order Button
+            // Delivered Button - Primary action at top
             Container(
               width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFFEF4444),
-                    Color(0xFFDC2626),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  ordersProvider.removeOrder(order.orderId);
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Order #${order.orderId} removed and returned to available orders!',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      backgroundColor: Colors.orange,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.remove_circle_outline,
-                      color: Colors.white,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Remove Order',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Mark as Delivered Button
-            Container(
-              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [
@@ -898,9 +871,73 @@ class OrderCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Mark as Delivered',
+                      'Delivered', // Changed from "Mark as Delivered"
                       style: GoogleFonts.poppins(
                         fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Remove Order Button - Secondary action at bottom, smaller
+            Container(
+              width: double.infinity,
+              height: 44, // Smaller height
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFFEF4444),
+                    Color(0xFFDC2626),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  ordersProvider.removeOrder(order.orderId);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Order #${order.orderId} removed and returned to available orders!',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      backgroundColor: Colors.orange,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(vertical: 8), // Smaller padding
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.remove_circle_outline,
+                      color: Colors.white,
+                      size: 18, // Slightly smaller icon
+                    ),
+                    const SizedBox(width: 6), // Smaller spacing
+                    Text(
+                      'Remove Order',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13, // Smaller font size
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),

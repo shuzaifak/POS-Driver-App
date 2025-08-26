@@ -39,8 +39,8 @@ class Order {
   final String paymentType;
   final String? transactionId;
   final String orderType;
-  late final int? driverId;
-  late final String status;
+  int? driverId; // Changed from late final to regular final
+  String status; // Changed from late final to regular final
   final DateTime createdAt;
   final double changeDue;
   final String orderSource;
@@ -54,6 +54,7 @@ class Order {
   final double orderTotalPrice;
   final String? orderExtraNotes;
   final List<OrderItem> items;
+  final String brandName; // Keep as final String
 
   Order({
     required this.orderId,
@@ -74,52 +75,97 @@ class Order {
     required this.postalCode,
     required this.orderTotalPrice,
     this.orderExtraNotes,
-    required this.items, required String fullAddress,
+    required this.items,
+    required this.brandName,
   });
 
   String get fullAddress => '$streetAddress, $city, $county, $postalCode';
 
+  // Helper method to check if this order belongs to TVP brand
+  bool get isTVPOrder => brandName.toUpperCase() == 'TVP';
+
+  // Helper method to get brand display name
+  String get displayBrandName => brandName.isNotEmpty ? brandName : 'Unknown';
+
   factory Order.fromJson(Map<String, dynamic> json) {
-    // Enhanced price parsing with multiple fallback strategies
-    double totalPrice = _extractTotalPrice(json);
+    try {
+      // Enhanced price parsing with multiple fallback strategies
+      double totalPrice = _extractTotalPrice(json);
 
-    // Parse items first to potentially calculate total from items if main total is 0
-    List<OrderItem> orderItems = [];
-    if (json['items'] != null && json['items'] is List) {
-      orderItems = (json['items'] as List)
-          .map((item) => OrderItem.fromJson(item))
-          .toList();
+      // Parse items first to potentially calculate total from items if main total is 0
+      List<OrderItem> orderItems = [];
+      if (json['items'] != null && json['items'] is List) {
+        try {
+          orderItems = (json['items'] as List)
+              .map((item) => OrderItem.fromJson(item))
+              .toList();
+        } catch (e) {
+          print('Error parsing order items: $e');
+          orderItems = [];
+        }
+      }
+
+      // If total price is 0 but we have items, calculate from items
+      if (totalPrice == 0.0 && orderItems.isNotEmpty) {
+        double calculatedTotal = orderItems.fold(0.0, (sum, item) => sum + item.itemTotalPrice);
+        if (calculatedTotal > 0.0) {
+          totalPrice = calculatedTotal;
+        }
+      }
+
+      String brandName = _extractBrandName(json);
+
+      return Order(
+        orderId: json['order_id'],
+        paymentType: json['payment_type']?.toString() ?? '',
+        transactionId: json['transaction_id']?.toString(),
+        orderType: json['order_type']?.toString() ?? '',
+        driverId: _parseInt(json['driver_id']),
+        status: json['status']?.toString() ?? '',
+        createdAt: _parseDateTime(json['created_at']),
+        changeDue: _parseDouble(json['change_due']),
+        orderSource: json['order_source']?.toString() ?? '',
+        customerName: json['customer_name']?.toString() ?? '',
+        customerEmail: json['customer_email']?.toString() ?? '',
+        phoneNumber: json['phone_number']?.toString() ?? '',
+        streetAddress: json['street_address']?.toString() ?? '',
+        city: json['city']?.toString() ?? '',
+        county: json['county']?.toString() ?? '',
+        postalCode: json['postal_code']?.toString() ?? '',
+        orderTotalPrice: totalPrice,
+        orderExtraNotes: json['extra_notes']?.toString(),
+        items: orderItems,
+        brandName: brandName,
+      );
+    } catch (e) {
+      print('Error creating Order from JSON: $e');
+      print('JSON data: $json');
+      rethrow;
     }
+  }
 
-    // If total price is 0 but we have items, calculate from items
-    if (totalPrice == 0.0 && orderItems.isNotEmpty) {
-      double calculatedTotal = orderItems.fold(0.0, (sum, item) => sum + item.itemTotalPrice);
-      if (calculatedTotal > 0.0) {
-        totalPrice = calculatedTotal;
+  // Helper method to extract brand name from JSON
+  static String _extractBrandName(Map<String, dynamic> json) {
+    // List of possible field names for brand name
+    final possibleFields = [
+      'brand_name',
+      'brandName',
+      'brand',
+      'client_id',
+      'clientId',
+    ];
+
+    for (String field in possibleFields) {
+      if (json.containsKey(field) && json[field] != null) {
+        String value = json[field].toString().trim();
+        if (value.isNotEmpty) {
+          return value;
+        }
       }
     }
 
-    return Order(
-      orderId: json['order_id'] ?? 0,
-      paymentType: json['payment_type'] ?? '',
-      transactionId: json['transaction_id'],
-      orderType: json['order_type'] ?? '',
-      driverId: json['driver_id'],
-      status: json['status'] ?? '',
-      createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
-      changeDue: _parseDouble(json['change_due']),
-      orderSource: json['order_source'] ?? '',
-      customerName: json['customer_name'] ?? '',
-      customerEmail: json['customer_email'] ?? '',
-      phoneNumber: json['phone_number'] ?? '',
-      streetAddress: json['street_address'] ?? '',
-      city: json['city'] ?? '',
-      county: json['county'] ?? '',
-      postalCode: json['postal_code'] ?? '',
-      orderTotalPrice: totalPrice,
-      orderExtraNotes: json['extra_notes'],
-      items: orderItems, fullAddress: '',
-    );
+    // Default to TVP if no brand found (since this is a TVP driver app)
+    return 'TVP';
   }
 
   // Enhanced method to extract total price from JSON with multiple fallback strategies
@@ -161,5 +207,79 @@ class Order {
       return double.tryParse(value) ?? 0.0;
     }
     return 0.0;
+  }
+
+  // Helper method to safely parse integer values
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) {
+      if (value.isEmpty) return null;
+      return int.tryParse(value);
+    }
+    return null;
+  }
+
+  // Helper method to safely parse DateTime values
+  static DateTime _parseDateTime(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is String) {
+      final parsed = DateTime.tryParse(value);
+      if (parsed != null) return parsed;
+    }
+    return DateTime.now();
+  }
+
+  // Method to update order status (useful for real-time updates)
+  Order copyWith({
+    int? orderId,
+    String? paymentType,
+    String? transactionId,
+    String? orderType,
+    int? driverId,
+    String? status,
+    DateTime? createdAt,
+    double? changeDue,
+    String? orderSource,
+    String? customerName,
+    String? customerEmail,
+    String? phoneNumber,
+    String? streetAddress,
+    String? city,
+    String? county,
+    String? postalCode,
+    double? orderTotalPrice,
+    String? orderExtraNotes,
+    List<OrderItem>? items,
+    String? brandName,
+  }) {
+    return Order(
+      orderId: orderId ?? this.orderId,
+      paymentType: paymentType ?? this.paymentType,
+      transactionId: transactionId ?? this.transactionId,
+      orderType: orderType ?? this.orderType,
+      driverId: driverId ?? this.driverId,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      changeDue: changeDue ?? this.changeDue,
+      orderSource: orderSource ?? this.orderSource,
+      customerName: customerName ?? this.customerName,
+      customerEmail: customerEmail ?? this.customerEmail,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      streetAddress: streetAddress ?? this.streetAddress,
+      city: city ?? this.city,
+      county: county ?? this.county,
+      postalCode: postalCode ?? this.postalCode,
+      orderTotalPrice: orderTotalPrice ?? this.orderTotalPrice,
+      orderExtraNotes: orderExtraNotes ?? this.orderExtraNotes,
+      items: items ?? this.items,
+      brandName: brandName ?? this.brandName,
+    );
+  }
+
+  @override
+  String toString() {
+    return 'Order(orderId: $orderId, status: $status, brand: $brandName, customer: $customerName)';
   }
 }

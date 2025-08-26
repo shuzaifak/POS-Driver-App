@@ -295,7 +295,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                               const Icon(Icons.person_rounded, size: 16),
                               const SizedBox(width: 6),
                               Text(
-                                'Mine',
+                                'Picked', // Changed from 'Mine'
                                 style: GoogleFonts.poppins(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -536,7 +536,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                         ),
                         pw.SizedBox(height: 4),
                         pw.Text(
-                          '\$${totalAmount.toStringAsFixed(2)}',
+                          '\£ ${totalAmount.toStringAsFixed(2)}',
                           style: pw.TextStyle(
                             fontSize: 20,
                             fontWeight: pw.FontWeight.bold,
@@ -556,7 +556,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                         ),
                         pw.SizedBox(height: 4),
                         pw.Text(
-                          '\$${totalDeliveries > 0 ? (totalAmount / totalDeliveries).toStringAsFixed(2) : '0.00'}',
+                          '\£ ${totalDeliveries > 0 ? (totalAmount / totalDeliveries).toStringAsFixed(2) : '0.00'}',
                           style: pw.TextStyle(
                             fontSize: 20,
                             fontWeight: pw.FontWeight.bold,
@@ -690,7 +690,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(8),
                           child: pw.Text(
-                            '\$${(order.orderTotalPrice ?? 0).toStringAsFixed(2)}',
+                            '\£${(order.orderTotalPrice ?? 0).toStringAsFixed(2)}',
                             style: const pw.TextStyle(fontSize: 9),
                             textAlign: pw.TextAlign.right,
                           ),
@@ -1553,7 +1553,7 @@ class _OrdersScreenState extends State<OrdersScreen>
       case 'all':
         return 'New orders will appear here when they\'re available for pickup';
       case 'my':
-        return 'Orders you accept will appear here';
+        return 'Orders you pick up will appear here'; // Updated text
       case 'completed':
         return 'Your completed deliveries will be shown here';
       default:
