@@ -9,7 +9,7 @@ class ApiService {
   // Common headers for all requests
   static Map<String, String> get _commonHeaders => {
     'Content-Type': 'application/json',
-    'x-client-id': 'TVP',
+    'x-client-id': 'TEST',
   };
 
   static Future<Driver> login(String username, String password) async {
@@ -62,14 +62,14 @@ class ApiService {
               final order = Order.fromJson(orderData);
 
               // FIXED: Log the processed brand name, not the raw JSON
-              print('📦 Processing order $i: ${order.orderId} - Brand: ${order.brandName} (isTVPOrder: ${order.isTVPOrder})');
+              print('📦 Processing order $i: ${order.orderId} - Brand: ${order.brandName} (isTESTOrder: ${order.isTESTOrder})');
 
-              // Use the Order object's isTVPOrder property for filtering
-              if (order.isTVPOrder) {
+              // Use the Order object's isTESTOrder property for filtering
+              if (order.isTESTOrder) {
                 orders.add(order);
-                print('✅ Added TVP order: ${order.orderId}');
+                print('✅ Added TEST order: ${order.orderId}');
               } else {
-                print('🚫 Skipped non-TVP order: ${order.orderId} (brand: ${order.brandName})');
+                print('🚫 Skipped non-TEST order: ${order.orderId} (brand: ${order.brandName})');
               }
 
             } catch (e) {
@@ -104,8 +104,8 @@ class ApiService {
           final order = Order.fromJson(data);
 
           // FIXED: Check the Order object's properties, not raw JSON
-          if (!order.isTVPOrder) {
-            throw Exception('Order does not belong to TVP brand');
+          if (!order.isTESTOrder) {
+            throw Exception('Order does not belong to TEST brand');
           }
           return order;
         } catch (e) {

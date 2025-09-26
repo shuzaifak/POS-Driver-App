@@ -91,15 +91,15 @@ class SocketService extends ChangeNotifier {
       print('   - New Driver ID: $newDriverId');
       print('   - Brand Name: $brandName');
 
-      // Filter: Only process orders for TVP brand
-      if (brandName != 'TVP') {
-        print('🚫 SocketService: Order not for TVP brand ($brandName), ignoring...');
+      // Filter: Only process orders for TEST brand
+      if (brandName != 'TEST') {
+        print('🚫 SocketService: Order not for TEST brand ($brandName), ignoring...');
         return;
       }
 
       // CRITICAL: Check for new order available (status == 'green' && driver_id == null)
       if (newStatus == 'green' && newDriverId == null && orderId != null) {
-        print('🆕 SocketService: POTENTIAL NEW TVP ORDER DETECTED! Order ID: $orderId');
+        print('🆕 SocketService: POTENTIAL NEW TEST ORDER DETECTED! Order ID: $orderId');
 
         // Create payload for provider to handle new order
         final newOrderPayload = {
@@ -114,30 +114,30 @@ class SocketService extends ChangeNotifier {
           '_timestamp': DateTime.now().millisecondsSinceEpoch,
         };
 
-        print('🔔 SocketService: Calling callback with new TVP order payload...');
+        print('🔔 SocketService: Calling callback with new TEST order payload...');
         _onOrderStatusChanged!(newOrderPayload);
 
         // Show notification for potential new order
-        print('📱 SocketService: Showing notification for new TVP order...');
+        print('📱 SocketService: Showing notification for new TEST order...');
         _showNewOrderNotification(orderId);
 
       } else if (newStatus == 'green' && newDriverId != null) {
         // Order accepted by someone else
-        print('👤 SocketService: TVP Order accepted by driver $newDriverId');
+        print('👤 SocketService: TEST Order accepted by driver $newDriverId');
         _onOrderStatusChanged!(data);
 
       } else if (newStatus == 'blue') {
         // Order completed
-        print('🏁 SocketService: TVP Order $orderId completed');
+        print('🏁 SocketService: TEST Order $orderId completed');
         _onOrderStatusChanged!(data);
 
       } else {
         // Handle other status changes
-        print('🔄 SocketService: Other TVP status change, calling callback...');
+        print('🔄 SocketService: Other TEST status change, calling callback...');
         _onOrderStatusChanged!(data);
       }
 
-      print('✅ SocketService: TVP order update processing completed');
+      print('✅ SocketService: TEST order update processing completed');
 
     } catch (e) {
       print('❌ SocketService: Error processing order update: $e');
@@ -188,7 +188,7 @@ class SocketService extends ChangeNotifier {
         'randomizationFactor': 0.5,
         // Send client identification
         'extraHeaders': {
-          'x-client-id': 'TVP'
+          'x-client-id': 'TEST'
         },
       },
     );
@@ -206,7 +206,7 @@ class SocketService extends ChangeNotifier {
       print('🧪 SocketService: Testing connection...');
       _socket!.emit('ping', {
         'test': 'connection_test',
-        'client_id': 'TVP',
+        'client_id': 'TEST',
         'timestamp': DateTime.now().toIso8601String()
       });
     } else {
@@ -225,7 +225,7 @@ class SocketService extends ChangeNotifier {
       _startHeartbeat();
 
       // Identify client to server
-      _socket!.emit('client_identify', {'client_id': 'TVP', 'type': 'driver_app'});
+      _socket!.emit('client_identify', {'client_id': 'TEST', 'type': 'driver_app'});
 
       // Immediately re-establish callback if it exists
       if (_onOrderStatusChanged != null) {
@@ -239,8 +239,8 @@ class SocketService extends ChangeNotifier {
       Timer(Duration(seconds: 1), () {
         print('🧪 SocketService: Testing connection with ping...');
         _socket!.emit('ping', {
-          'test': 'from_flutter_tvp_driver_app',
-          'client_id': 'TVP',
+          'test': 'from_flutter_TEST_driver_app',
+          'client_id': 'TEST',
           'timestamp': DateTime.now().toIso8601String()
         });
       });
@@ -281,7 +281,7 @@ class SocketService extends ChangeNotifier {
       _reconnectAttempts = 0;
 
       // Re-identify client after reconnection
-      _socket!.emit('client_identify', {'client_id': 'TVP', 'type': 'driver_app'});
+      _socket!.emit('client_identify', {'client_id': 'TEST', 'type': 'driver_app'});
 
       // Use safe notification method
       _safeNotifyListeners();
@@ -334,8 +334,8 @@ class SocketService extends ChangeNotifier {
 
       // Check brand filter first
       final brandName = eventData['brand_name'];
-      if (brandName != 'TVP') {
-        print('🚫 SocketService: New order not for TVP brand ($brandName), ignoring...');
+      if (brandName != 'TEST') {
+        print('🚫 SocketService: New order not for TEST brand ($brandName), ignoring...');
         return;
       }
 
@@ -351,7 +351,7 @@ class SocketService extends ChangeNotifier {
           '_requires_api_fetch': true,
         };
 
-        print('🔔 SocketService: Processing new TVP order creation...');
+        print('🔔 SocketService: Processing new TEST order creation...');
         _handleOrderUpdate(newOrderPayload);
       }
     });
@@ -370,14 +370,14 @@ class SocketService extends ChangeNotifier {
   }
 
   Future<void> _showNewOrderNotification(int orderId) async {
-    print('📱 SocketService: _showNewOrderNotification called for TVP order $orderId');
+    print('📱 SocketService: _showNewOrderNotification called for TEST order $orderId');
 
     try {
       const AndroidNotificationDetails androidPlatformChannelSpecifics =
       AndroidNotificationDetails(
         'new_orders_channel',
         'New Orders',
-        channelDescription: 'Notifications for new TVP delivery orders',
+        channelDescription: 'Notifications for new TEST delivery orders',
         importance: Importance.max,
         priority: Priority.high,
         playSound: true,
@@ -402,13 +402,13 @@ class SocketService extends ChangeNotifier {
 
       await _notificationsPlugin.show(
         orderId.hashCode,
-        'New TVP Delivery Order Available! 🚚',
-        'Tap to view TVP Order #$orderId',
+        'New TEST Delivery Order Available! 🚚',
+        'Tap to view TEST Order #$orderId',
         platformChannelSpecifics,
-        payload: jsonEncode({'order_id': orderId, 'type': 'new_order', 'brand': 'TVP'}),
+        payload: jsonEncode({'order_id': orderId, 'type': 'new_order', 'brand': 'TEST'}),
       );
 
-      print('✅ SocketService: Notification shown successfully for TVP order $orderId');
+      print('✅ SocketService: Notification shown successfully for TEST order $orderId');
     } catch (e) {
       print('❌ SocketService: Error showing notification: $e');
     }
@@ -421,7 +421,7 @@ class SocketService extends ChangeNotifier {
         print('💓 SocketService: Sending heartbeat...');
         _socket!.emit('ping', {
           'heartbeat': true,
-          'client_id': 'TVP',
+          'client_id': 'TEST',
           'timestamp': DateTime.now().toIso8601String()
         });
       } else {

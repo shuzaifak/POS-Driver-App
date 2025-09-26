@@ -73,25 +73,25 @@ class OrdersProvider extends ChangeNotifier {
 
 // Detect changes in order lists
   bool _detectChanges(List<Order> newOrders) {
-    // Filter new orders for comparison - only process TVP orders
+    // Filter new orders for comparison - only process TEST orders
     final newAllOrders = newOrders.where((order) {
       return order.driverId == null &&
           order.status == 'green' &&
           order.orderType == 'delivery' &&
-          order.brandName == 'TVP';
+          order.brandName == 'TEST';
     }).toList();
 
     final newMyOrders = newOrders.where((order) {
       return order.driverId != null &&
           order.status == 'green' &&
           order.orderType == 'delivery' &&
-          order.brandName == 'TVP';
+          order.brandName == 'TEST';
     }).toList();
 
     final newCompletedOrders = newOrders.where((order) {
       return order.status == 'blue' &&
           order.orderType == 'delivery' &&
-          order.brandName == 'TVP';
+          order.brandName == 'TEST';
     }).toList();
 
     // Check if counts changed
@@ -165,31 +165,31 @@ class OrdersProvider extends ChangeNotifier {
   }
 
   void _updateOrderLists(List<Order> orders) {
-    // Filter for All Orders (driver_id == null, status == 'green', order_type == 'delivery', brand_name == 'TVP')
+    // Filter for All Orders (driver_id == null, status == 'green', order_type == 'delivery', brand_name == 'TEST')
     _allOrders = orders.where((order) {
       bool matchesDriverId = order.driverId == null;
       bool matchesStatus = order.status == 'green';
       bool matchesOrderType = order.orderType == 'delivery';
-      bool matchesBrand = order.brandName == 'TVP';
+      bool matchesBrand = order.brandName == 'TEST';
 
       return matchesDriverId && matchesStatus && matchesOrderType && matchesBrand;
     }).toList();
 
-    // Filter for My Orders (driver_id != null, status == 'green', order_type == 'delivery', brand_name == 'TVP')
+    // Filter for My Orders (driver_id != null, status == 'green', order_type == 'delivery', brand_name == 'TEST')
     _myOrders = orders.where((order) {
       bool matchesDriverId = order.driverId != null;
       bool matchesStatus = order.status == 'green';
       bool matchesOrderType = order.orderType == 'delivery';
-      bool matchesBrand = order.brandName == 'TVP';
+      bool matchesBrand = order.brandName == 'TEST';
 
       return matchesDriverId && matchesStatus && matchesOrderType && matchesBrand;
     }).toList();
 
-    // Filter for Completed Orders (status == 'blue', order_type == 'delivery', brand_name == 'TVP')
+    // Filter for Completed Orders (status == 'blue', order_type == 'delivery', brand_name == 'TEST')
     _completedOrders = orders.where((order) {
       bool matchesStatus = order.status == 'blue';
       bool matchesOrderType = order.orderType == 'delivery';
-      bool matchesBrand = order.brandName == 'TVP';
+      bool matchesBrand = order.brandName == 'TEST';
 
       return matchesStatus && matchesOrderType && matchesBrand;
     }).toList();
@@ -220,35 +220,35 @@ class OrdersProvider extends ChangeNotifier {
       print('   - Is New Order Event: $isNewOrderEvent');
       print('   - Should Fetch Details: $shouldFetchDetails');
 
-      // Filter: Only process TVP orders
-      if (brandName != 'TVP') {
-        print('OrdersProvider: Order not for TVP brand ($brandName), ignoring...');
+      // Filter: Only process TEST orders
+      if (brandName != 'TEST') {
+        print('OrdersProvider: Order not for TEST brand ($brandName), ignoring...');
         return;
       }
 
       // PRIORITY: Handle potential new order (status=green, driver_id=null)
       if (newStatus == 'green' && newDriverId == null && orderId != null) {
-        print('OrdersProvider: Processing potential new TVP order: $orderId');
+        print('OrdersProvider: Processing potential new TEST order: $orderId');
         _handlePotentialNewOrder(orderId);
         return;
       }
 
       // Handle order accepted by another driver
       if (newStatus == 'green' && newDriverId != null) {
-        print('OrdersProvider: TVP Order accepted by driver $newDriverId');
+        print('OrdersProvider: TEST Order accepted by driver $newDriverId');
         _handleOrderAcceptedByOther(orderId);
         return;
       }
 
       // Handle order completion
       if (newStatus == 'blue') {
-        print('OrdersProvider: TVP Order completed');
+        print('OrdersProvider: TEST Order completed');
         _handleOrderCompleted(orderId, newDriverId);
         return;
       }
 
       // Handle other status changes with minimal reload
-      print('OrdersProvider: Other TVP status change, doing silent refresh...');
+      print('OrdersProvider: Other TEST status change, doing silent refresh...');
       _performSilentRefresh();
 
     } catch (e) {
@@ -260,7 +260,7 @@ class OrdersProvider extends ChangeNotifier {
 
 // New method to handle potential new orders
   Future<void> _handlePotentialNewOrder(int orderId) async {
-    print('OrdersProvider: Checking if order $orderId is a new TVP delivery order');
+    print('OrdersProvider: Checking if order $orderId is a new TEST delivery order');
 
     try {
       // Check if order already exists to avoid duplicates
@@ -273,7 +273,7 @@ class OrdersProvider extends ChangeNotifier {
         return;
       }
 
-      print('OrdersProvider: Fetching order details for TVP order $orderId');
+      print('OrdersProvider: Fetching order details for TEST order $orderId');
 
       // Fetch order details using the API
       final order = await ApiService.getOrderDetails(orderId);
@@ -286,13 +286,13 @@ class OrdersProvider extends ChangeNotifier {
       print('   - Customer: ${order.customerName}');
       print('   - Brand Name: ${order.brandName}');
 
-      // Only add if it's a TVP delivery order with green status and no driver
+      // Only add if it's a TEST delivery order with green status and no driver
       if (order.orderType == 'delivery' &&
           order.status == 'green' &&
           order.driverId == null &&
-          order.brandName == 'TVP') {
+          order.brandName == 'TEST') {
 
-        print('OrdersProvider: Adding new TVP delivery order to All Orders');
+        print('OrdersProvider: Adding new TEST delivery order to All Orders');
 
         // Add to beginning of all orders (newest first)
         _allOrders.insert(0, order);
@@ -302,11 +302,11 @@ class OrdersProvider extends ChangeNotifier {
         // Notify listeners for immediate UI update
         notifyListeners();
 
-        print('OrdersProvider: New TVP order added successfully and UI updated');
+        print('OrdersProvider: New TEST order added successfully and UI updated');
 
       } else {
         print('OrdersProvider: Order does not qualify for All Orders');
-        print('   - Expected: orderType=delivery, status=green, driverId=null, brandName=TVP');
+        print('   - Expected: orderType=delivery, status=green, driverId=null, brandName=TEST');
         print('   - Actual: orderType=${order.orderType}, status=${order.status}, driverId=${order.driverId}, brandName=${order.brandName}');
       }
 
@@ -418,7 +418,7 @@ class OrdersProvider extends ChangeNotifier {
   }
 
   Future<void> _handleOrderAcceptedByOther(int orderId) async {
-    print('OrdersProvider: TVP Order $orderId was accepted by another driver');
+    print('OrdersProvider: TEST Order $orderId was accepted by another driver');
 
     // Remove from all orders if it exists
     final orderIndex = _allOrders.indexWhere((order) => order.orderId == orderId);
@@ -431,7 +431,7 @@ class OrdersProvider extends ChangeNotifier {
   }
 
   Future<void> _handleOrderCompleted(int orderId, int? driverId) async {
-    print('OrdersProvider: TVP Order $orderId was completed');
+    print('OrdersProvider: TEST Order $orderId was completed');
 
     // If it's in my orders, move to completed
     final myOrderIndex = _myOrders.indexWhere((order) => order.orderId == orderId);
@@ -472,7 +472,7 @@ class OrdersProvider extends ChangeNotifier {
   }
 
   Future<void> completeOrder(int orderId, int driverId) async {
-    print('OrdersProvider: Starting order completion for TVP order $orderId');
+    print('OrdersProvider: Starting order completion for TEST order $orderId');
 
     // Find the order first
     final orderIndex = _myOrders.indexWhere((order) => order.orderId == orderId);

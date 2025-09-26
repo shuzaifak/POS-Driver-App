@@ -383,7 +383,7 @@ class _OrdersScreenState extends State<OrdersScreen>
     }).toList();
   }
 
-// Replace the _generateDayEndReport method with this corrected version
+// Replace the _generateDayEndReport method with this updated version
   Future<void> _generateDayEndReport() async {
     try {
       // Use the saved provider reference instead of context.read
@@ -433,12 +433,19 @@ class _OrdersScreenState extends State<OrdersScreen>
       final dateFormatter = DateFormat('dd/MM/yyyy');
       final timeFormatter = DateFormat('HH:mm');
 
-      // Calculate totals for today only
+      // Calculate totals by payment type
       double totalAmount = 0;
       int totalDeliveries = todaysCompletedOrders.length;
+      Map<String, double> paymentTypeTotals = {};
+      Map<String, int> paymentTypeCount = {};
 
       for (var order in todaysCompletedOrders) {
-        totalAmount += order.orderTotalPrice ?? 0;
+        final amount = order.orderTotalPrice ?? 0;
+        totalAmount += amount;
+
+        final paymentType = (order.paymentType ?? 'Unknown').toUpperCase();
+        paymentTypeTotals[paymentType] = (paymentTypeTotals[paymentType] ?? 0) + amount;
+        paymentTypeCount[paymentType] = (paymentTypeCount[paymentType] ?? 0) + 1;
       }
 
       pdf.addPage(
@@ -545,24 +552,30 @@ class _OrdersScreenState extends State<OrdersScreen>
                         ),
                       ],
                     ),
+                    // Payment Types Breakdown
                     pw.Column(
                       children: [
                         pw.Text(
-                          'Average Order',
+                          'Payment Types',
                           style: pw.TextStyle(
                             fontSize: 12,
                             fontWeight: pw.FontWeight.bold,
                           ),
                         ),
                         pw.SizedBox(height: 4),
-                        pw.Text(
-                          '\£ ${totalDeliveries > 0 ? (totalAmount / totalDeliveries).toStringAsFixed(2) : '0.00'}',
-                          style: pw.TextStyle(
-                            fontSize: 20,
-                            fontWeight: pw.FontWeight.bold,
-                            color: PdfColors.blue,
-                          ),
-                        ),
+                        ...paymentTypeTotals.entries.map((entry) {
+                          return pw.Padding(
+                            padding: const pw.EdgeInsets.only(bottom: 2),
+                            child: pw.Text(
+                              '${entry.key}: \£${entry.value.toStringAsFixed(2)}',
+                              style: pw.TextStyle(
+                                fontSize: 12,
+                                fontWeight: pw.FontWeight.bold,
+                                color: PdfColors.blue,
+                              ),
+                            ),
+                          );
+                        }).toList(),
                       ],
                     ),
                   ],

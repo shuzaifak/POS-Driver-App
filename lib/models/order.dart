@@ -81,8 +81,8 @@ class Order {
 
   String get fullAddress => '$streetAddress, $city, $county, $postalCode';
 
-  // Helper method to check if this order belongs to TVP brand
-  bool get isTVPOrder => brandName.toUpperCase() == 'TVP';
+  // Helper method to check if this order belongs to TEST brand
+  bool get isTESTOrder => brandName.toUpperCase() == 'TEST';
 
   // Helper method to get brand display name
   String get displayBrandName => brandName.isNotEmpty ? brandName : 'Unknown';
@@ -164,8 +164,8 @@ class Order {
       }
     }
 
-    // Default to TVP if no brand found (since this is a TVP driver app)
-    return 'TVP';
+    // Default to TEST if no brand found (since this is a TEST driver app)
+    return 'TEST';
   }
 
   // Enhanced method to extract total price from JSON with multiple fallback strategies
