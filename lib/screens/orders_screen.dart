@@ -371,16 +371,7 @@ class _OrdersScreenState extends State<OrdersScreen>
 
 
   List _getTodaysCompletedOrders(List completedOrders) {
-    final today = DateTime.now();
-    final todayDateOnly = DateTime(today.year, today.month, today.day);
-
-    return completedOrders.where((order) {
-      // Since we only have createdAt field, we'll use that for filtering
-      // This assumes that orders in completedOrders list are already filtered by status
-      final orderDate = order.createdAt;
-      final orderDateOnly = DateTime(orderDate.year, orderDate.month, orderDate.day);
-      return orderDateOnly.isAtSameMomentAs(todayDateOnly);
-    }).toList();
+    return completedOrders.where((order) => order.status == 'blue').toList();
   }
 
 // Replace the _generateDayEndReport method with this updated version
